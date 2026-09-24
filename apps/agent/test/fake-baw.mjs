@@ -12,6 +12,7 @@ const NO_LIQ = { success: false, error: { code: 100, name: 'SERVICE_ERROR', mess
 
 let out
 if (f.auth) out = { success: false, error: { code: 10003000, name: f.auth, message: 'Not logged in' } }
+else if (args[0] === 'x402-payment' && args[1] === 'preview' && /xrpl|solana/.test(Buffer.from(arg('--paymentRequirements'), 'base64').toString() + arg('--paymentRequirements'))) out = { success: false, error: { code: 351741, name: 'SERVICE_ERROR', message: 'unsupported x402 protocol version (only v2 supported)' } } // like the real baw
 else if (args[0] === 'x402-payment' && args[1] === 'preview') out = f.x402Preview ?? { success: true, data: { paymentId: 'pay-1', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USDT', amount: '0.100000000000000000', needApproveFirst: false }] } }
 else if (args[0] === 'x402-payment' && args[1] === 'sign') out = f.x402Sign ?? { success: true, data: { paymentHeaderName: 'PAYMENT-SIGNATURE', paymentHeaderValue: `sig-for-${arg('--paymentId')}-${arg('--selectedIndex')}`, approveTxHash: null } }
 else if (args[0] === 'wallet' && args[1] === 'tx-history') out = { success: true, data: { binanceChainId: '56', txHash: arg('--tx'), status: f.txStatus ?? 'SUCCESS' } } // real `--tx` shape

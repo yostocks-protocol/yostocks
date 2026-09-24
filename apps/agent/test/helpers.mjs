@@ -94,3 +94,21 @@ export function fakeCmc(state = {}) {
   }
   return { handler, seen, state }
 }
+
+/** A fake macropulse calendar (x402, multi-network challenge like the real one) on macro.test. */
+export function fakeMacro(state = {}) {
+  const seen = []
+  const challenge = Buffer.from(JSON.stringify({ x402Version: 2, accepts: [
+    { scheme: 'exact', network: 'eip155:8453', amount: '100000', asset: '0x8335' },
+    { scheme: 'exact', network: 'xrpl:0', amount: '0.1', asset: 'XRP' },
+    { scheme: 'exact', network: 'eip155:56', amount: '100000000000000000', asset: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', extra: { assetTransferMethod: 'eip3009' } },
+  ] })).toString('base64')
+  const handler = async (u, init) => {
+    const headers = Object.fromEntries(new Headers(init.headers ?? {}))
+    seen.push({ headers })
+    if (!headers['payment-signature']) return new Response('{"error":"X-PAYMENT header is required"}', { status: 402, headers: { 'payment-required': challenge } })
+    const body = readFileSync(new URL('./fixtures/macro-calendar.json', import.meta.url), 'utf8')
+    return new Response(body, { status: 200, headers: { 'payment-response': Buffer.from(JSON.stringify({ success: true, transaction: '0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a' })).toString('base64') } })
+  }
+  return { handler, seen, state }
+}
