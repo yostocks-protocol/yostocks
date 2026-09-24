@@ -25,7 +25,7 @@ async function api(path) {
   return j.data
 }
 
-async function baw(...args) {
+export async function baw(...args) {
   try {
     return JSON.parse((await run(BAW, [...args, '--json'])).stdout)
   } catch (e) {
