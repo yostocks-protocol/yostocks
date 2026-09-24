@@ -116,10 +116,12 @@ export async function onMessage(msg) {
   if (name === '/analyze') {
     const ticker = rest[0]?.toUpperCase()
     if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
-    const [q, m] = await Promise.all([analyst.quote(ticker), stockMetaByTicker(ticker)])
+    // Offer right away at the last known price; the slow (~16s) 402 challenge runs only after Pay.
+    const m = await stockMetaByTicker(ticker)
+    const offer = { ticker, ...analyst.lastPrice }
     const id = Math.random().toString(36).slice(2, 10)
-    pending.set(id, { analyze: q, at: Date.now() })
-    return card(chat, ui.analysisOffer(ticker, q, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, q) })
+    pending.set(id, { analyze: offer, at: Date.now() })
+    return card(chat, ui.analysisOffer(ticker, offer, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, offer) })
   }
   if (name === '/strategies') return say(chat, ui.strategyList(store.load().map((s) => ({ id: s.id, description: describe(s.rule) }))))
   if (name === '/stop') {
@@ -162,8 +164,8 @@ async function onPublic(chat, text = '') {
   if (name === '/analyze') {
     const ticker = arg?.toUpperCase()
     if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
-    const [q, m] = await Promise.all([analyst.quote(ticker), stockMetaByTicker(ticker)])
-    return card(chat, `${ui.analysisOffer(ticker, q, m?.company)}\n\n${ui.ownerOnly}`, { photo: m?.photo ?? brand.logo }) // no Pay button
+    const m = await stockMetaByTicker(ticker)
+    return card(chat, `${ui.analysisOffer(ticker, analyst.lastPrice, m?.company)}\n\n${ui.ownerOnly}`, { photo: m?.photo ?? brand.logo }) // no Pay button
   }
   const p = parse(text)
   if (p.error) return say(chat, ui.notice(p.error))
@@ -198,7 +200,12 @@ export async function onCallback(q) {
   }
   if (action === 'pay' && p.analyze) {
     if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /analyze again.'))
-    const job = await analyst.pay(p.analyze)
+    await say(chat, ui.notice('Preparing the x402 payment… the analyst takes ~15 seconds to answer.'))
+    const q = await analyst.quote(p.analyze.ticker)
+    if (Number(q.amount) > Number(p.analyze.amount) || q.token !== p.analyze.token) {
+      return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /analyze again.`))
+    }
+    const job = await analyst.pay(q)
     await say(chat, ui.analysisPaid(job))
     watchJob(chat, job).catch((e) => say(chat, ui.problem(e.message)).catch(() => {}))
     return job
