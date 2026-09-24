@@ -66,3 +66,11 @@ test('sell card and sold receipt', () => {
   assert.match(r, /✅ <b>Sold<\/b>[\s\S]*<b>4\.9800 USDT<\/b> for 0\.022410 NVDAB\nNvidia Corp \(NVDA\) on bStocks/)
   assert.match(r, /Avg price: <b>\$222\.05<\/b> \/ share \(−0\.12% vs NVDA\)/)
 })
+
+test('market card renders CMC sections, never raw JSON when sections exist', () => {
+  const c = ui.marketCard({ metrics: {}, sections: [{ title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39177%' }] }], raw: { last_updated: '24 September 2026' }, paid: '0.01 U', flowId: 'bd9f6966-x' })
+  assert.match(c, /<b>Market size<\/b>\n• Total crypto market cap: <b>2\.88 T<\/b> \(\+0\.39177% 24h\)/)
+  assert.match(c, /Updated 24 September 2026/)
+  assert.match(c, /✅ Paid <b>0\.01 U<\/b> over x402 · <code>bd9f6966<\/code>/)
+  assert.ok(!c.includes('{'))
+})

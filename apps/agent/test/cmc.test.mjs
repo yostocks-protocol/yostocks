@@ -46,3 +46,19 @@ test('parseMcp handles plain JSON, SSE and structuredContent; metrics() finds ne
   assert.equal(cmc.metrics({ a: { b: { eth_dominance: '12.5' } } }).ethDominance, 12.5)
   assert.equal(cmc.metrics('not an object'), null)
 })
+
+test('sections(): the real CMC schema (grouped, display strings) → readable items, definitions dropped', () => {
+  const raw = {
+    last_updated: '24 September 2026 12:00 AM UTC+0',
+    market_size: {
+      definition: 'Market size captures the aggregate USD value of the entire crypto asset class…',
+      total_crypto_market_cap_usd: { current: '2.88 T', percent_change: { '24h': '+0.39177%', '7d': '+10.7%' }, yearly: { max: { value: '4.28 T' } } },
+    },
+    liquidity: { definition: 'Liquidity metrics track how…', total_volume_24h_usd: { current: '98.1 B', percent_change: { '24h': '-3.2%' } } },
+  }
+  assert.deepEqual(cmc.sections(raw), [
+    { title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39177%' }] },
+    { title: 'Liquidity', items: [{ label: 'Total volume 24h', current: '98.1 B', change24h: '-3.2%' }] },
+  ])
+  assert.deepEqual(cmc.sections(null), [])
+})
