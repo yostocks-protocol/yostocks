@@ -14,7 +14,7 @@ runtime = "agentcore"
 #   X402 or MPP — publish exactly one sibling B402 seller route (/x402 or
 #          /mpp). Payment-only still uses A2A as the cloud carrier but hides
 #          that native face at the public gateway.
-protocols = ["A2A","X402"]
+protocols = ["A2A"]
 
 [network]
 default = "bsc-testnet"
@@ -68,6 +68,13 @@ check_interval_seconds = 60
 # symbol or canonical AssetId. Narrow this to lock spending to specific stables.
 allowed_payment_tokens = ["U","USDC","USDT"]
 
+[payments.erc8183]
+enabled = true
+quote_ttl_seconds = 900                        # seconds a signed quote stays valid; SDK caps at 900 (~15min work window)
+default_estimated_completion_seconds = 600
+poll_interval_seconds = 30
+auto_settle = false                            # opt-in: detect dispute-window-elapsed → settle
+
 [payments.seller]
 # 所有 Seller rail 与已配置资产共用同一个 USD 标价；"0" 表示 FREE。
 price_usd = "0.01"
@@ -85,7 +92,7 @@ kind = "local"
 [payments.b402_seller]
 # Public X402 seller rail mounted at /x402. Credentials stay in
 # <workspace>/.studio/.env.local and are issued per B402 environment.
-enabled = true
+enabled = false  # PAID needs B402 merchant creds; the application form is org-locked (see DX_LOG)
 # Empty means the agent wallet receives payment.
 pay_to = ""
 # Payment settles before work; this bounds only the post-settlement work.
