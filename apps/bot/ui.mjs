@@ -33,7 +33,15 @@ export const COMMANDS = [
 export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostocks compares Ondo, xStocks and bStocks against the real stock price, blocks bad quotes, and buys from the best route through your Binance Agentic Wallet.'
 export const SHORT_DESCRIPTION = 'Tokenized US stocks on BNB Chain, with a safety check on every trade.'
 
-export const privateBot = (chat) => `🔒 <b>yostocks is private.</b>\nYour chat id is <code>${esc(chat)}</code>. Set <code>YO_OWNER_CHAT_ID=${esc(chat)}</code> to use it.`
+export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a safety check on every trade.
+
+You're in <b>demo mode</b>: try it on live mainnet data.
+/quote NVDA 10 · compare Ondo, xStocks and bStocks against the real stock price
+/analyze NVDA · see the x402 research offer from BNB Agent Studio
+
+Buying, selling and strategies run on the owner's wallet only.`
+export const ownerOnly = '🔒 Trading runs on the owner\'s wallet only. In demo mode try /quote NVDA 10 or /analyze NVDA.'
+export const slowDown = (s) => `⏱ One quote every ${s} seconds in demo mode, please.`
 
 /** Guarded comparison of every provider for one ticker (output of scan()). */
 export function quoteCard({ ticker, usdt, ref, rows, best }, { ask = false, company } = {}) {
