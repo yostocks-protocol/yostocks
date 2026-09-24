@@ -74,19 +74,35 @@ export async function scan(ticker, usdt) {
   return { ticker, usdt, ref, rows: judged, best }
 }
 
-function print({ ticker, usdt, ref, rows, best }) {
-  console.log(`\n${ticker} · ${usdt} USDT · reference $${ref.toFixed(2)}/share\n`)
+export function format({ ticker, usdt, ref, rows, best }) {
+  const lines = [`${ticker} · ${usdt} USDT · reference $${ref.toFixed(2)}/share`, '']
   for (const r of rows) {
     const mark = r === best ? '★' : r.ok ? '✓' : '✗'
     const info = r.ok ? `$${r.perShare.toFixed(2)}/share (${r.dev >= 0 ? '+' : ''}${r.dev.toFixed(2)}%)` : r.why
-    console.log(`${mark} ${PROVIDER[r.t.type].padEnd(8)} ${r.t.symbol.padEnd(9)} ${info}`)
+    lines.push(`${mark} ${PROVIDER[r.t.type].padEnd(8)} ${r.t.symbol.padEnd(9)} ${info}`)
   }
-  console.log(best ? `\nbest: ${best.t.symbol} → ${best.got.toFixed(6)} tokens` : '\nno safe route, not trading')
+  lines.push('', best ? `best: ${best.t.symbol} → ${best.got.toFixed(6)} tokens` : 'no safe route, not trading')
+  return lines.join('\n')
+}
+
+// Swap USDT → token and wait for a terminal state. An orderId is not a fill.
+export async function execute(token, usdt, onSubmit = () => {}) {
+  const sub = await baw('market-order', 'swap', '--fromTokenQty', String(usdt), '--fromToken', USDT, '--toToken', token.contractAddress, '--binanceChainId', '56', '--slippage', SLIPPAGE)
+  if (!sub.success) throw new Error(`swap rejected: ${JSON.stringify(sub.error)}`)
+  const { orderId } = sub.data
+  onSubmit(orderId)
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 3000))
+    const o = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
+    if (o?.status === 'FINISHED') return { orderId, status: 'FINISHED', tx: `https://bscscan.com/tx/${o.txHash}` }
+    if (o?.status === 'FAILED') throw new Error(`order ${orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
+  }
+  return { orderId, status: 'PENDING' }
 }
 
 async function buy(ticker, usdt, yes) {
   const s = await scan(ticker, usdt)
-  print(s)
+  console.log('\n' + format(s))
   if (!s.best) return process.exit(2)
   if (!yes) {
     const rl = createInterface({ input: process.stdin, output: process.stdout })
@@ -94,18 +110,8 @@ async function buy(ticker, usdt, yes) {
     rl.close()
     if (a.trim().toLowerCase() !== 'y') return console.log('cancelled')
   }
-  const sub = await baw('market-order', 'swap', '--fromTokenQty', String(usdt), '--fromToken', USDT, '--toToken', s.best.t.contractAddress, '--binanceChainId', '56', '--slippage', SLIPPAGE)
-  if (!sub.success) throw new Error(`swap rejected: ${JSON.stringify(sub.error)}`)
-  const { orderId } = sub.data
-  console.log(`submitted order ${orderId}, confirming…`)
-  // An orderId is not a fill: poll until FINISHED / FAILED.
-  for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 3000))
-    const o = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
-    if (o?.status === 'FINISHED') return console.log(`✓ filled · tx https://bscscan.com/tx/${o.txHash}`)
-    if (o?.status === 'FAILED') throw new Error(`order ${orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
-  }
-  console.log(`still PENDING after 90s, check: baw market-order list --orderId ${orderId}`)
+  const r = await execute(s.best.t, usdt, (id) => console.log(`submitted order ${id}, confirming…`))
+  console.log(r.status === 'FINISHED' ? `✓ filled · tx ${r.tx}` : `still PENDING after 90s, check: baw market-order list --orderId ${r.orderId}`)
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
@@ -116,6 +122,6 @@ if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
     process.exit(1)
   }
   const T = ticker.toUpperCase()
-  const job = cmd === 'quote' ? scan(T, usdt).then(print) : buy(T, usdt, process.argv.includes('--yes'))
+  const job = cmd === 'quote' ? scan(T, usdt).then((s) => console.log('\n' + format(s))) : buy(T, usdt, process.argv.includes('--yes'))
   job.catch((e) => { console.error(`✗ ${e.message}`); process.exit(1) })
 }
