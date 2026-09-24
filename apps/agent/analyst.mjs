@@ -75,11 +75,15 @@ export function summarize(md) {
 
 const decode = (b64) => { try { return b64 ? JSON.parse(Buffer.from(b64, 'base64').toString()) : null } catch { return null } }
 
+export const TX_POLL_MS = Number(process.env.YO_TX_POLL_MS ?? 3000)
 async function waitTx(hash) {
   for (let i = 0; i < 20; i++) {
+    // `tx-history --tx` answers { data: { txHash, status: 'SUCCESS' } }, not the list shape of plain tx-history.
     const h = await baw('wallet', 'tx-history', '--binanceChainId', '56', '--tx', hash)
-    if (h.data?.transactions?.[0]?.status === 'confirmed') return
-    await new Promise((r) => setTimeout(r, 3000))
+    const status = String(h.data?.status ?? h.data?.transactions?.[0]?.status ?? '').toUpperCase()
+    if (['SUCCESS', 'CONFIRMED'].includes(status)) return
+    if (['FAILED', 'FAIL'].includes(status)) throw new Error(`permit2 approve ${hash} failed on-chain`)
+    await new Promise((r) => setTimeout(r, TX_POLL_MS))
   }
   throw new Error(`permit2 approve ${hash} not confirmed after 60s`)
 }
