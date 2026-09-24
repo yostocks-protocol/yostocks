@@ -1,0 +1,8 @@
+{
+  "name": "@yostocks/agent",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "yo": "./yo.mjs" },
+  "scripts": { "test": "node --test" },
+  "engines": { "node": ">=22" }
+}
