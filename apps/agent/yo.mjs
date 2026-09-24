@@ -10,6 +10,7 @@ const run = promisify(execFile)
 const BAW = process.env.BAW || 'baw'
 const MAX_DEV = Number(process.env.YO_MAX_DEV ?? 1) // % a quote may differ from the reference price
 const SLIPPAGE = process.env.YO_SLIPPAGE ?? '1' // %
+const POLL_MS = Number(process.env.YO_POLL_MS ?? 3000) // order status poll interval, 30 polls max
 const USDT = '0x55d398326f99059fF775485246999027B3197955'
 const API = 'https://www.binance.com/bapi/defi'
 const HEADERS = { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' }
@@ -92,7 +93,7 @@ export async function execute(token, usdt, onSubmit = () => {}) {
   const { orderId } = sub.data
   onSubmit(orderId)
   for (let i = 0; i < 30; i++) {
-    await new Promise((r) => setTimeout(r, 3000))
+    await new Promise((r) => setTimeout(r, POLL_MS))
     const o = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
     if (o?.status === 'FINISHED') return { orderId, status: 'FINISHED', tx: `https://bscscan.com/tx/${o.txHash}` }
     if (o?.status === 'FAILED') throw new Error(`order ${orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
@@ -111,7 +112,7 @@ async function buy(ticker, usdt, yes) {
     if (a.trim().toLowerCase() !== 'y') return console.log('cancelled')
   }
   const r = await execute(s.best.t, usdt, (id) => console.log(`submitted order ${id}, confirming…`))
-  console.log(r.status === 'FINISHED' ? `✓ filled · tx ${r.tx}` : `still PENDING after 90s, check: baw market-order list --orderId ${r.orderId}`)
+  console.log(r.status === 'FINISHED' ? `✓ filled · tx ${r.tx}` : `still PENDING after 30 polls, check: baw market-order list --orderId ${r.orderId}`)
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
