@@ -1,6 +1,6 @@
 {
   "name": "yostocks",
   "private": true,
-  "workspaces": ["apps/*"],
+  "workspaces": ["apps/agent", "apps/bot"],
   "scripts": { "test": "npm test --workspaces" }
 }
