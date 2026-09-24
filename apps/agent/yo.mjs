@@ -15,6 +15,7 @@ const USDT = '0x55d398326f99059fF775485246999027B3197955'
 const API = 'https://www.binance.com/bapi/defi'
 const HEADERS = { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' }
 const PROVIDER = { 1: 'Ondo', 2: 'xStocks', 3: 'bStocks' }
+const AUTH_ERRORS = ['NOT_LOGGED_IN', 'SESSION_EXPIRED']
 const BLOCKED = ['ASSET_PAUSED', 'UNSUPPORTED', 'MARKET_MAINTENANCE', 'MARKET_PAUSED']
 
 async function api(path) {
@@ -61,7 +62,8 @@ export async function scan(ticker, usdt) {
     ])
     return { t, dyn, status, quote, usdt, multiplier: Number(dyn.tokenInfo.sharesMultiplier || t.multiplier || 1) }
   }))
-  if (rows[0].quote?.error?.name === 'NOT_LOGGED_IN') throw new Error('Agentic Wallet not signed in: run `baw auth signin`')
+  const auth = rows.find((r) => AUTH_ERRORS.includes(r.quote?.error?.name))
+  if (auth) throw new Error(`Agentic Wallet ${auth.quote.error.name}: run \`baw auth signin\``)
 
   // US stock price when the feed has it, else Ondo's oracle price per share (Ondo tracks within ~0.1%).
   const withStock = rows.find((r) => r.dyn.stockInfo?.price)
