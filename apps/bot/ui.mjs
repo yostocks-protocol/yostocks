@@ -13,7 +13,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /buy NVDA 10 · buy from the safest, cheapest route
 /sell NVDA · sell what you hold (or /sell NVDA 0.01)
 /analyze NVDA · research report from BNB Agent Studio, paid via x402
-/market · crypto market snapshot from CoinMarketCap, paid via x402
+/macro · this week's CPI / jobs / Fed calendar, paid via x402
 
 <b>Autopilot</b>
 /strategy buy $10 of NVDA every Monday, skip earnings
@@ -26,7 +26,7 @@ export const COMMANDS = [
   { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
   { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
   { command: 'analyze', description: 'Research report by BNB Agent Studio, paid via x402 · /analyze NVDA' },
-  { command: 'market', description: 'Crypto market snapshot from CoinMarketCap, paid via x402' },
+  { command: 'macro', description: "This week's CPI / jobs / Fed calendar, paid via x402" },
   { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
   { command: 'strategies', description: 'Your saved strategies' },
   { command: 'stop', description: 'Remove a strategy · /stop <id>' },
@@ -40,7 +40,7 @@ export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain,
 You're in <b>demo mode</b>: try it on live mainnet data.
 /quote NVDA 10 · compare Ondo, xStocks and bStocks against the real stock price
 /analyze NVDA · see the x402 research offer from BNB Agent Studio
-/market · see the x402 market-data offer from CoinMarketCap
+/macro · see the x402 macro-calendar offer
 
 Buying, selling and strategies run on the owner's wallet only.`
 export const ownerOnly = '🔒 Trading runs on the owner\'s wallet only. In demo mode try /quote NVDA 10 or /analyze NVDA.'
@@ -192,6 +192,30 @@ export function marketCard(r) {
     lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : '<i>The provider returned data in a format I could not read.</i>')
   }
   lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.flowId ? ` · <code>${esc(r.flowId.slice(0, 8))}</code>` : ''}`)
+  return lines.join('\n')
+}
+
+// ---- macro calendar (macropulse via Bazaar, paid over x402) ----
+const IMPACT = { high: '🔴', medium: '🟠', low: '⚪' }
+export const macroOffer = (q) => [
+  '🗓 <b>This week\'s market-moving events</b>',
+  'CPI, jobs, GDP and central-bank decisions: the calendar that moves US stocks, before you buy them.',
+  '',
+  `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet (Bazaar merchant).`,
+  '<i>Confirm within 60 seconds.</i>',
+].join('\n')
+export const macroButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `mac:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+export function macroCard(r) {
+  const lines = [`🗓 <b>Macro week${r.week ? ` of ${esc(r.week)}` : ''}</b>`, '']
+  if (r.headline) lines.push(`<i>${esc(r.headline)}</i>`, '')
+  for (const e of r.events) lines.push(`${IMPACT[e.impact] ?? '⚪'} ${esc(e.day ?? e.date)}${e.time ? ` ${esc(e.time)} UTC` : ''} · ${esc(e.event)}${e.currency && e.currency !== 'Multi' ? ` (${esc(e.currency)})` : ''}`)
+  if (r.fed) lines.push('', `🏦 Fed: next decision <b>${esc(r.fed.next)}</b>${r.fed.rate && r.fed.rate !== 'Unknown' ? ` · rate ${esc(r.fed.rate)}` : ''}`)
+  const usHigh = r.events.filter((e) => e.currency === 'USD' && e.impact === 'high')
+  lines.push('', usHigh.length
+    ? `<b>For US stocks:</b> ${usHigh.length} high-impact US release${usHigh.length > 1 ? 's' : ''} this week. Expect bigger swings around ${esc(usHigh[0].day)}; buying in smaller steps is safer.`
+    : '<b>For US stocks:</b> no high-impact US releases this week; macro risk is low for scheduled buys.')
+  if (r.partial) lines.push('<i>Paid, but the calendar came back unreadable.</i>')
+  lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.tx ? ` · <a href="https://bscscan.com/tx/${esc(r.tx)}">tx ↗</a>` : ''}`)
   return lines.join('\n')
 }
 

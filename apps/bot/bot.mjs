@@ -7,6 +7,7 @@ import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
 import * as analyst from '../agent/analyst.mjs'
 import * as cmc from '../agent/cmc.mjs'
+import * as macro from '../agent/macro.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
@@ -114,6 +115,12 @@ export async function onMessage(msg) {
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
+  if (name === '/macro') {
+    const id = Math.random().toString(36).slice(2, 10)
+    const offer = { ...macro.lastPrice }
+    pending.set(id, { macro: offer, at: Date.now() })
+    return card(chat, ui.macroOffer(offer), { reply_markup: ui.macroButtons(id, offer) })
+  }
   if (name === '/market') {
     const id = Math.random().toString(36).slice(2, 10)
     const offer = { ...cmc.lastPrice }
@@ -168,6 +175,7 @@ async function onPublic(chat, text = '') {
   const [head, arg] = text.trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/market') return card(chat, `${ui.marketOffer(cmc.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
+  if (name === '/macro') return card(chat, `${ui.macroOffer(macro.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   if (!['/quote', '/analyze'].includes(name)) return ['/buy', '/sell', '/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.PUBLIC_HELP)
   if (Date.now() - (lastPublic.get(chat) ?? 0) < PUBLIC_GAP_MS) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
   lastPublic.set(chat, Date.now())
@@ -207,6 +215,12 @@ export async function onCallback(q) {
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
     return say(chat, ui.strategySaved(id, describe(p.rule)))
+  }
+  if (action === 'mac' && p.macro) {
+    if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /macro again.'))
+    const q = await macro.quote()
+    if (Number(q.amount) > Number(p.macro.amount)) return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /macro again.`))
+    return card(chat, ui.macroCard(await macro.buy(q)))
   }
   if (action === 'mkt' && p.market) {
     if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /market again.'))
