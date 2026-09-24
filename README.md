@@ -50,10 +50,10 @@ npm start -w apps/bot    # message the bot once, it replies with your chat id
 `/quote NVDA 10` shows the guarded comparison. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
 Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet.
 
-`/strategy buy $10 of NVDA every Monday 9pm, skip earnings, max 0.5% premium` → Claude (`claude-opus-5`, structured
-output) turns it into a fixed rule, shown back in plain words with a Save button. Fixed code enforces the bounds
+`/strategy buy $10 of NVDA every Monday 9pm, skip earnings, max 0.5% premium` → an OpenAI model (`gpt-5.4-mini` by default,
+`YO_LLM_MODEL` to change; strict JSON-schema output) turns it into a fixed rule, shown back in plain words with a Save button. Fixed code enforces the bounds
 (1–1000 USDT, premium cap ≤ 1%), and anything the rule can't express (selling, stop-losses, several stocks) is
-refused, not approximated. Needs `ANTHROPIC_API_KEY` in `.env`. `/strategies` lists, `/stop <id>` removes.
+refused, not approximated. Needs `OPENAI_API_KEY` in `.env`. `/strategies` lists, `/stop <id>` removes.
 
 ## Testing
 
