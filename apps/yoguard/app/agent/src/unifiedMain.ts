@@ -90,7 +90,8 @@ import {
   type B402RunWork,
   B402Seller,
 } from "@bnbagent/studio-runtime/b402";
-import { generateText, stepCountIs } from "ai";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
 import { resolveStorageMode } from "@bnbagent/studio-runtime/storage";
 import express from "express";
 import { buildAgentCard } from "./agentCard.js";
@@ -102,6 +103,7 @@ import {
   isCommerceRateLimitError as isSellRateLimitError,
 } from "./requestLimits.js";
 import type { RunWork } from "./sellerCore.js";
+import { check, parseRequest } from "./guard.js";
 import { LLM_READ_TOOLS } from "./tools.js";
 
 const APP_NAME = "agent";
@@ -197,30 +199,37 @@ export function buildRunWork(): RunWork {
   // the LLM) — missing-key errors surface at notify_funded delivery time.
   let model: ReturnType<typeof buildModel> | undefined;
   return async (prompt, { abortSignal }) => {
+    // Structured request → deterministic verdict, no LLM in the decision path.
+    const req = parseRequest(prompt);
+    if (req) return JSON.stringify(await check(req));
+
     model ??= buildModel(); // managed model with the auto-renew hook (delivery only)
     const result = await generateText({
       model,
       system:
-        "You are a seller agent. The runtime has already authorized this task " +
-        "through its configured commerce rail. Complete the user's task now; " +
-        "do not ask for a job ID or additional payment. " +
-        "Be concrete and concise. Use the read-only chain tools when on-chain " +
-        "context helps. If a paid-data tool such as `buy_with_x402` is available " +
-        "to you, USE IT to fetch the data a task needs — those merchants (e.g. " +
-        "CoinMarketCap) charge via on-chain wallet payment, NOT an API key; never " +
-        "reply that you cannot complete the task for lack of an API key.",
+        "You are yoguard, a safety checker for tokenized US stocks on BNB Smart Chain " +
+        "(Ondo `…on`, xStocks `…x`, bStocks `…B`). The runtime has already authorized " +
+        "this task. Use `check_quote` to compare the buyer's quotes against the real " +
+        "stock price, then answer in a few lines: which token is safe to buy and why, " +
+        "and which quotes to avoid. Never invent prices; if the tool errors, say so.",
       prompt,
-      // LLM_READ_TOOLS = read-only chain tools (wallet, balances,
-      // ERC-8004/8183 queries). Edit `tools.ts` to add/remove. These are
-      // READ-ONLY — the agent never signs via a tool; all signing is in
-      // signing.ts (fixed code).
-      // To let the agent BUY paid data at work time (e.g. CMC market data
-      // after `bag x402 trust cmc` + `bag recipe code x402-buyer`), spread
-      // the emitted tool set — payee + per-call/daily caps stay locked in
-      // studio.toml:
-      //   import { X402_BUYER_TOOLS } from "./x402Buyer.js";
-      //   tools: { ...LLM_READ_TOOLS, ...X402_BUYER_TOOLS },
-      tools: LLM_READ_TOOLS,
+      tools: {
+        ...LLM_READ_TOOLS,
+        check_quote: tool({
+          description:
+            "Check tokenized-stock swap quotes on BSC against the reference stock price. " +
+            "quotes[].toCoinAmount = tokens received for `usdt` USDT in. Omit quotes to get reference data only.",
+          inputSchema: z.object({
+            ticker: z.string(),
+            usdt: z.number().positive(),
+            quotes: z.array(z.object({ token: z.string(), toCoinAmount: z.string() })).optional(),
+          }),
+          execute: async (input) => {
+            const r = parseRequest(JSON.stringify(input));
+            return r ? check(r) : { error: "invalid ticker/usdt/token" };
+          },
+        }),
+      },
       stopWhen: stepCountIs(8), // bounded tool-call loop, then final text
       abortSignal,
     });
