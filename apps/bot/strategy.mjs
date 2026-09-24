@@ -1,8 +1,10 @@
 // Plain-English strategy → a small, fixed rule the runner can execute.
-// Claude only translates; bounds and the final yes/no are fixed code + the user's Confirm.
-import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+// The LLM only translates; bounds and the final yes/no are fixed code + the user's Confirm.
+import OpenAI from 'openai'
+import { zodTextFormat } from 'openai/helpers/zod'
 import { z } from 'zod'
+
+const MODEL = process.env.YO_LLM_MODEL ?? 'gpt-5.4-mini'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 export const MAX_USDT = 1000
@@ -26,17 +28,18 @@ Anything else (selling, stop-losses, several stocks, percentages of a portfolio,
 export const deps = { client: null } // tests inject a fake client here
 
 export async function parseStrategy(text) {
-  deps.client ??= new Anthropic()
-  const res = await deps.client.messages.parse({
-    model: 'claude-opus-5',
-    max_tokens: 2000,
-    output_config: { effort: 'low', format: zodOutputFormat(Rule) },
-    system: SYSTEM,
-    messages: [{ role: 'user', content: text }],
+  deps.client ??= new OpenAI() // OPENAI_API_KEY from the environment
+  const res = await deps.client.responses.parse({
+    model: MODEL,
+    instructions: SYSTEM,
+    input: text,
+    reasoning: { effort: 'low' },
+    text: { format: zodTextFormat(Rule, 'strategy_rule') },
   })
-  if (res.stop_reason === 'refusal') throw new Error('the model declined to parse this strategy')
-  if (res.stop_reason === 'max_tokens' || !res.parsed_output) throw new Error('could not parse the strategy, try rephrasing')
-  return res.parsed_output
+  const refusal = res.output?.flatMap((o) => o.content ?? []).find((c) => c.type === 'refusal')
+  if (refusal) throw new Error(`the model declined to parse this strategy: ${refusal.refusal}`)
+  if (res.status === 'incomplete' || !res.output_parsed) throw new Error('could not parse the strategy, try rephrasing')
+  return res.output_parsed
 }
 
 /** Hard bounds, independent of what the model returned. */
