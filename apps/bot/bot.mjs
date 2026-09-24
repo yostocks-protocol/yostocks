@@ -126,6 +126,8 @@ export async function onMessage(msg) {
     // Offer right away at the last known price; the slow (~16s) 402 challenge runs only after Pay.
     const m = await stockMetaByTicker(ticker)
     const offer = { ticker, ...analyst.lastPrice }
+    // The Stock Analyze Agent rejects every proof right now (#29); don't offer a button that can only fail.
+    if (process.env.YO_ANALYST_PAY !== '1') return card(chat, `${ui.analysisOffer(ticker, offer, m?.company)}\n\n${ui.analystPaused}`, { photo: m?.photo ?? brand.logo })
     const id = Math.random().toString(36).slice(2, 10)
     pending.set(id, { analyze: offer, at: Date.now() })
     return card(chat, ui.analysisOffer(ticker, offer, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, offer) })

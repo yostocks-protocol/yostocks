@@ -11,7 +11,7 @@ const sc = scenario({})
 const dir = mkdtempSync(join(tmpdir(), 'yo-an-'))
 Object.assign(process.env, {
   BAW: FAKE_BAW, FAKE_BAW: sc.file, TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER),
-  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1', YO_CMC_URL: 'https://cmc.test/x402/mcp',
+  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1', YO_ANALYST_PAY: '1', YO_CMC_URL: 'https://cmc.test/x402/mcp',
 })
 const { onMessage, onCallback, watchJob } = await import('./bot.mjs')
 
@@ -90,11 +90,20 @@ test('/market → offer with Pay → one payment → market card with the metric
   const n = signs().length
   await tap(sent[0].reply_markup.inline_keyboard[0][0].callback_data)
   assert.equal(signs().length, n + 1)
-  assert.match(texts().at(-1), /Total market cap: <b>\$3\.91T<\/b> \(−1\.23% 24h\)[\s\S]*BTC dominance: <b>57\.8%<\/b> · ETH 12\.4%[\s\S]*✅ Paid <b>0\.01 U<\/b> over x402/)
+  assert.match(texts().at(-1), /Sentiment: <b>Greed<\/b> \(74\/100\)[\s\S]*Market cap: <b>\$2\.88T<\/b>[\s\S]*✅ Paid <b>0\.01 U<\/b> over x402/)
 })
 
 test('stranger /market sees the offer without a Pay button', async () => {
   await onMessage({ chat: { id: 9 }, text: '/market' })
   assert.match(texts()[0], /Crypto market snapshot[\s\S]*owner's wallet only/)
   assert.equal(sent[0].reply_markup, undefined)
+})
+
+test('with YO_ANALYST_PAY off (default), /analyze explains the pause and shows no Pay button', async () => {
+  process.env.YO_ANALYST_PAY = '0'
+  try {
+    await onMessage({ chat: { id: OWNER }, text: '/analyze NVDA' })
+    assert.match(texts()[0], /Payments to this agent are paused[\s\S]*payment_rejected/)
+    assert.equal(sent[0].reply_markup, undefined)
+  } finally { process.env.YO_ANALYST_PAY = '1' }
 })
