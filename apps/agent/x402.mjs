@@ -5,13 +5,25 @@ import { baw } from './yo.mjs'
 export const TX_POLL_MS = Number(process.env.YO_TX_POLL_MS ?? 3000)
 export const decode = (b64) => { try { return b64 ? JSON.parse(Buffer.from(b64, 'base64').toString()) : null } catch { return null } }
 
+/**
+ * `baw` rejects a challenge that also lists non-EVM / other-chain accepts ("unsupported x402 protocol
+ * version") even when it's v2. Keep only BSC accepts when there are others; pass it through otherwise.
+ */
+export function bscOnly(required) {
+  const ch = decode(required)
+  if (!ch?.accepts?.some((a) => a.network !== 'eip155:56')) return required
+  const bsc = ch.accepts.filter((a) => a.network === 'eip155:56')
+  if (!bsc.length) throw new Error('merchant accepts no BSC payment')
+  return JSON.stringify({ ...ch, accepts: bsc })
+}
+
 /** Unpaid request → 402 → wallet preview → the option we'd pay with. No signature, no charge. */
 export async function challenge(url, init) {
   const res = await fetch(url, { ...init, signal: AbortSignal.timeout(30_000) })
   if (res.status !== 402) throw new Error(`expected 402 from ${new URL(url).host}, got ${res.status}`)
   const required = res.headers.get('payment-required')
   if (!required) throw new Error('402 without a payment-required header')
-  const pv = await baw('x402-payment', 'preview', '--paymentRequirements', required)
+  const pv = await baw('x402-payment', 'preview', '--paymentRequirements', bscOnly(required))
   if (!pv.success) throw new Error(`x402 preview failed: ${JSON.stringify(pv.error)}`)
   // Prefer EIP-3009 (U / USD1): no approval needed, and a permit2 proof was rejected by one merchant (#29).
   const ready = pv.data.options.filter((o) => o.status === 'READY_TO_SIGN') // pre-sorted, best first
