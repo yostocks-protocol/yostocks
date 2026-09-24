@@ -1,0 +1,1151 @@
+{
+ "recordedAt": "2026-09-24T11:15:18.215Z",
+ "list": {
+  "code": "000000",
+  "message": null,
+  "messageDetail": null,
+  "data": [
+   {
+    "chainId": "1",
+    "contractAddress": "0x2d1f7226bd1f780af6b9a49dcc0ae00e8df4bdee",
+    "symbol": "NVDAon",
+    "ticker": "NVDA",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.0017152487959898",
+    "lastUpdateTime": 1788998689203,
+    "d": 18
+   },
+   {
+    "chainId": "1",
+    "contractAddress": "0x59644165402b611b350645555b50afb581c71eb2",
+    "symbol": "METAon",
+    "ticker": "META",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.002826918305349555",
+    "lastUpdateTime": 1789949250032,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x7313ea16493b2f55054df0131a3a14b043ec8992",
+    "symbol": "MSTRon",
+    "ticker": "MSTR",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xa9ee28c80f960b889dfbd1902055218cba016f75",
+    "symbol": "NVDAon",
+    "ticker": "NVDA",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.0017152487959898",
+    "lastUpdateTime": 1788998689203,
+    "d": 18
+   },
+   {
+    "chainId": "1",
+    "contractAddress": "0xcabd955322dfbf94c084929ac5e9eca3feb5556f",
+    "symbol": "MSTRon",
+    "ticker": "MSTR",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6",
+    "symbol": "METAon",
+    "ticker": "META",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.002826918305349555",
+    "lastUpdateTime": 1789949250032,
+    "d": 18
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "Xsa62P5mvPszXL1krVUnU5ar38bBSVcWAB6fmPCo5Zu",
+    "symbol": "METAx",
+    "ticker": "META",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1.0028515433272898",
+    "lastUpdateTime": 1789777804434,
+    "d": 8
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh",
+    "symbol": "NVDAx",
+    "ticker": "NVDA",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1.001701196801074",
+    "lastUpdateTime": 1789000204896,
+    "d": 8
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "XsP7xzNPvEHS1m6qfanPUGjNmdnmsLKEoNAnHjdxxyZ",
+    "symbol": "MSTRx",
+    "ticker": "MSTR",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1",
+    "lastUpdateTime": 1786103521565,
+    "d": 8
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "gEGtLTPNQ7jcg25zTetkbmF7teoDLcrfTnQfmn2ondo",
+    "symbol": "NVDAon",
+    "ticker": "NVDA",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.0017152487959898",
+    "lastUpdateTime": 1788998689203,
+    "d": 9
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "FSz4ouiqXpHuGPcpacZfTzbMjScoj5FfzHkiyu2ondo",
+    "symbol": "MSTRon",
+    "ticker": "MSTR",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 9
+   },
+   {
+    "chainId": "CT_501",
+    "contractAddress": "fDxs5y12E7x7jBwCKBXGqt71uJmCWsAQ3Srkte6ondo",
+    "symbol": "METAon",
+    "ticker": "META",
+    "type": 1,
+    "assetType": 1,
+    "multiplier": "1.002826918305349555",
+    "lastUpdateTime": 1789949250032,
+    "d": 9
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x96702be57cd9777f835117a809c7124fe4ec989a",
+    "symbol": "METAx",
+    "ticker": "META",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1",
+    "lastUpdateTime": 1786454612886,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xae2f842ef90c0d5213259ab82639d5bbf649b08e",
+    "symbol": "MSTRx",
+    "ticker": "MSTR",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1",
+    "lastUpdateTime": 1786454612886,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xc845b2894dbddd03858fd2d643b4ef725fe0849d",
+    "symbol": "NVDAx",
+    "ticker": "NVDA",
+    "type": 2,
+    "assetType": 1,
+    "multiplier": "1",
+    "lastUpdateTime": 1786454612886,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x02fca66c1d1afb4e2a7884261eb00f63598a7436",
+    "symbol": "NVDAB",
+    "ticker": "NVDA",
+    "type": 3,
+    "assetType": 1,
+    "multiplier": "1.000778223752807865",
+    "cs": "NVDABUSDT",
+    "asset": "NVDAB",
+    "lastUpdateTime": 1789012513889,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14",
+    "symbol": "MSTRB",
+    "ticker": "MSTR",
+    "type": 3,
+    "assetType": 1,
+    "multiplier": "1.000000000000000000",
+    "cs": "MSTRBUSDT",
+    "asset": "MSTRB",
+    "lastUpdateTime": 1785216123180,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x7425889fe94f9d693e8daefe88bcced6acfef4c0",
+    "symbol": "METAB",
+    "ticker": "META",
+    "type": 3,
+    "assetType": 1,
+    "multiplier": "1.00054829041074495",
+    "cs": "METABUSDT",
+    "asset": "METAB",
+    "lastUpdateTime": 1789973941380,
+    "d": 18
+   },
+   {
+    "chainId": "4663",
+    "contractAddress": "0xc0d6457c16cc70d6790dd43521c899c87ce02f35",
+    "symbol": "META",
+    "ticker": "META",
+    "type": 5,
+    "multiplier": "1.000541459879451635",
+    "lastUpdateTime": 1789950040807,
+    "d": 18
+   },
+   {
+    "chainId": "4663",
+    "contractAddress": "0xec262a75e413fafd0df80480274532c79d42da09",
+    "symbol": "MSTR",
+    "ticker": "MSTR",
+    "type": 5,
+    "multiplier": "1",
+    "lastUpdateTime": 1786103920096,
+    "d": 18
+   },
+   {
+    "chainId": "4663",
+    "contractAddress": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+    "symbol": "NVDA",
+    "ticker": "NVDA",
+    "type": 5,
+    "multiplier": "1.000775159164630595",
+    "lastUpdateTime": 1788998430981,
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0xe0cbb7ffc0883810569d84d78f02bbcb747cfe43",
+    "symbol": "xKLSH",
+    "ticker": "KLSH",
+    "type": 4,
+    "assetType": 2,
+    "multiplier": "1",
+    "asset": "8",
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x7ddef360f3c2db4cc41c3967984fefa2598cc9a6",
+    "symbol": "xOPAI",
+    "ticker": "OPENAI",
+    "type": 4,
+    "assetType": 2,
+    "multiplier": "1",
+    "asset": "5",
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x05353dabf163fb2fec87f9e0f00f94eae4ac1631",
+    "symbol": "xSPCX",
+    "ticker": "SPCX",
+    "type": 4,
+    "assetType": 2,
+    "multiplier": "1",
+    "asset": "3",
+    "d": 18
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x7c8d5502b544ddaf8852fc46d1174e34876d545c",
+    "symbol": "BNC4",
+    "ticker": "BNC",
+    "type": 9,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 18
+   },
+   {
+    "chainId": "8453",
+    "contractAddress": "0xb2000000000000000000008bc8786b856e61707c",
+    "symbol": "METAc",
+    "ticker": "META",
+    "type": 11,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 8
+   },
+   {
+    "chainId": "8453",
+    "contractAddress": "0xb2000000000000000000004884b426556b92883d",
+    "symbol": "MSTRc",
+    "ticker": "MSTR",
+    "type": 11,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 8
+   },
+   {
+    "chainId": "8453",
+    "contractAddress": "0xb20000000000000000000078ee7ce2fe4908108c",
+    "symbol": "NVDAc",
+    "ticker": "NVDA",
+    "type": 11,
+    "assetType": 1,
+    "multiplier": "1",
+    "d": 8
+   },
+   {
+    "chainId": "56",
+    "contractAddress": "0x1d80392d12caaaf9e333bb0bb7f021eacf297fe6",
+    "symbol": "pPOLY",
+    "ticker": "POLYMARKET",
+    "type": 4,
+    "assetType": 2,
+    "multiplier": "1",
+    "asset": "9",
+    "d": 18
+   }
+  ],
+  "success": true
+ },
+ "dynamic": {
+  "0x7313ea16493b2f55054df0131a3a14b043ec8992": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "MSTRon",
+    "ticker": "MSTR",
+    "tokenInfo": {
+     "price": "159.204286",
+     "priceHigh24h": "169.37",
+     "priceLow24h": "155.945",
+     "priceChange24h": "-7.995714",
+     "priceChangePct24h": "-4.78212559808612440",
+     "totalHolders": "1782",
+     "sharesMultiplier": "1",
+     "volume24h": "3384500529.12636288",
+     "marketCap": "21620481.285772220531670962413894",
+     "fdv": "21620481.285772220531670962413894",
+     "circulatingSupply": "135803.387138536085213629",
+     "maxSupply": "135803.387138536085213629",
+     "bnTrader": "1611",
+     "bnHolder": "408"
+    },
+    "stockInfo": {
+     "price": "159.36",
+     "priceHigh52w": "365.21",
+     "priceLow52w": "81.81",
+     "volume": "21238080.629558",
+     "averageVolume": "20335265",
+     "avgVolume30d": null,
+     "sharesOutstanding": "397281660",
+     "marketCap": "64445706745",
+     "turnoverRate": "5.3458",
+     "amplitude": "4.143500",
+     "priceToEarnings": null,
+     "dividendYield": "0",
+     "priceToBook": "1.67",
+     "lastCashAmount": "0.000000",
+     "apy": null,
+     "wso": "397281660",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": "premarket",
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": 1790256660000,
+     "nextCloseTime": 1790256540000
+    },
+    "limitInfo": {
+     "maxAttestationCount": "1500",
+     "maxActiveNotionalValue": "300000"
+    },
+    "type": 1
+   },
+   "success": true
+  },
+  "0xa9ee28c80f960b889dfbd1902055218cba016f75": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "NVDAon",
+    "ticker": "NVDA",
+    "tokenInfo": {
+     "price": "223.48467543688291636",
+     "priceHigh24h": "229.3066444628852",
+     "priceLow24h": "222.7046728292487",
+     "priceChange24h": "-5.23195874446146364",
+     "priceChangePct24h": "-2.28752874192489158",
+     "totalHolders": "57232",
+     "sharesMultiplier": "1.0017152487959898",
+     "volume24h": "19973075506.922943745",
+     "marketCap": "15918365.72686227157735654206239964901275556",
+     "fdv": "15918365.72686227157735654206239964901275556",
+     "circulatingSupply": "71227.996710485748734221",
+     "maxSupply": "71227.996710485748734221",
+     "bnTrader": "22610",
+     "bnHolder": "6042"
+    },
+    "stockInfo": {
+     "price": "223.045",
+     "priceHigh52w": "236.54",
+     "priceLow52w": "164.27",
+     "volume": "89547290.936461",
+     "averageVolume": "163541063",
+     "avgVolume30d": null,
+     "sharesOutstanding": "24147000000",
+     "marketCap": "5445309488049",
+     "turnoverRate": "0.3708",
+     "amplitude": "1.433000",
+     "priceToEarnings": "27.83",
+     "dividendYield": "0.13",
+     "priceToBook": "23.44",
+     "lastCashAmount": "0.250000",
+     "apy": null,
+     "wso": "24147000000",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": "premarket",
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": 1790256660000,
+     "nextCloseTime": 1790256540000
+    },
+    "limitInfo": {
+     "maxAttestationCount": "1500",
+     "maxActiveNotionalValue": "1200000"
+    },
+    "type": 1
+   },
+   "success": true
+  },
+  "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "METAon",
+    "ticker": "META",
+    "tokenInfo": {
+     "price": "733.096562088759685192",
+     "priceHigh24h": "765.6884369336835",
+     "priceLow24h": "724.1476866620511",
+     "priceChange24h": "-8.40368957539891481",
+     "priceChangePct24h": "-1.13333603819262443",
+     "totalHolders": "2223",
+     "sharesMultiplier": "1.002826918305349555",
+     "volume24h": "22519985821.5648717",
+     "marketCap": "1589329.411781557177088870383301705236013072",
+     "fdv": "1589329.411781557177088870383301705236013072",
+     "circulatingSupply": "2167.967351058357681266",
+     "maxSupply": "2167.967351058357681266",
+     "bnTrader": "2766",
+     "bnHolder": "331"
+    },
+    "stockInfo": {
+     "price": "730.475",
+     "priceHigh52w": "763.9",
+     "priceLow52w": "520.26",
+     "volume": "30829235.526972",
+     "averageVolume": "17438823",
+     "avgVolume30d": null,
+     "sharesOutstanding": "2547506225",
+     "marketCap": "1895687385625",
+     "turnoverRate": "1.2102",
+     "amplitude": "2.947000",
+     "priceToEarnings": "27.56",
+     "dividendYield": "0.29",
+     "priceToBook": "7.18",
+     "lastCashAmount": "0.525000",
+     "apy": null,
+     "wso": "2547506225",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": "premarket",
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": 1790256660000,
+     "nextCloseTime": 1790256540000
+    },
+    "limitInfo": {
+     "maxAttestationCount": "500",
+     "maxActiveNotionalValue": "250000"
+    },
+    "type": 1
+   },
+   "success": true
+  },
+  "0x96702be57cd9777f835117a809c7124fe4ec989a": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "METAx",
+    "ticker": "META",
+    "tokenInfo": {
+     "price": "573.753797102305679962107408139948762449",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "0",
+     "priceChangePct24h": "0",
+     "totalHolders": null,
+     "sharesMultiplier": "1.002298265651938",
+     "volume24h": "22519985821.5648717",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": "10000",
+     "maxSupply": "10000",
+     "bnTrader": "2",
+     "bnHolder": null
+    },
+    "stockInfo": {
+     "price": "730.475",
+     "priceHigh52w": "763.9",
+     "priceLow52w": "520.26",
+     "volume": "30829235.526972",
+     "averageVolume": "17438823",
+     "avgVolume30d": "19751803",
+     "sharesOutstanding": "2547506225",
+     "marketCap": "1895687385625",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": "27.8400",
+     "dividendYield": "0.00280000",
+     "priceToBook": "7.2600",
+     "lastCashAmount": null,
+     "apy": null,
+     "wso": null,
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 2
+   },
+   "success": true
+  },
+  "0xae2f842ef90c0d5213259ab82639d5bbf649b08e": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "MSTRx",
+    "ticker": "MSTR",
+    "tokenInfo": {
+     "price": "138.856393745918896838404511193916025684",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "0",
+     "priceChangePct24h": "0",
+     "totalHolders": null,
+     "sharesMultiplier": "1",
+     "volume24h": "3384500529.12636288",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": "30946.962827468499022",
+     "maxSupply": "30946.962827468499022",
+     "bnTrader": "5",
+     "bnHolder": "0"
+    },
+    "stockInfo": {
+     "price": "159.36",
+     "priceHigh52w": "365.21",
+     "priceLow52w": "81.81",
+     "volume": "21238080.629558",
+     "averageVolume": "20335265",
+     "avgVolume30d": "27521006",
+     "sharesOutstanding": "397281660",
+     "marketCap": "64445706745",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": null,
+     "dividendYield": "0.00000000",
+     "priceToBook": "1.8300",
+     "lastCashAmount": null,
+     "apy": null,
+     "wso": null,
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 2
+   },
+   "success": true
+  },
+  "0xc845b2894dbddd03858fd2d643b4ef725fe0849d": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "NVDAx",
+    "ticker": "NVDA",
+    "tokenInfo": {
+     "price": "224.269085228744065903122755434969591456",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "2.088498",
+     "priceChangePct24h": "0.94",
+     "totalHolders": null,
+     "sharesMultiplier": "1.0009180758490996",
+     "volume24h": "19973075506.922943745",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": "41161.399012988697772597",
+     "maxSupply": "41161.399012988697772597",
+     "bnTrader": "12",
+     "bnHolder": "15"
+    },
+    "stockInfo": {
+     "price": "223.045",
+     "priceHigh52w": "236.54",
+     "priceLow52w": "164.27",
+     "volume": "89547290.936461",
+     "averageVolume": "163541063",
+     "avgVolume30d": "121950017",
+     "sharesOutstanding": "24147000000",
+     "marketCap": "5445309488049",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": "28.4700",
+     "dividendYield": "0.00120000",
+     "priceToBook": "23.9800",
+     "lastCashAmount": null,
+     "apy": null,
+     "wso": null,
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": null,
+     "priceToSales": null,
+     "enterpriseValue": null,
+     "evToEbitda": null,
+     "returnOnEquity": null,
+     "returnOnAssets": null,
+     "freeCashFlow": null,
+     "debtToEquity": null
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 2
+   },
+   "success": true
+  },
+  "0x02fca66c1d1afb4e2a7884261eb00f63598a7436": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "NVDAB",
+    "ticker": "NVDA",
+    "tokenInfo": {
+     "price": "223.32366063043907507475",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "-5.17402341680201666205",
+     "priceChangePct24h": "-2.264",
+     "totalHolders": null,
+     "sharesMultiplier": "1.000778223752807865",
+     "volume24h": "143382890",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": null,
+     "maxSupply": null,
+     "bnTrader": "13294",
+     "bnHolder": "9731"
+    },
+    "stockInfo": {
+     "price": null,
+     "priceHigh52w": "236.5400",
+     "priceLow52w": "164.2700",
+     "volume": "645915",
+     "averageVolume": null,
+     "avgVolume30d": "121950017",
+     "sharesOutstanding": null,
+     "marketCap": "5445389970000.00",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": "28.4700",
+     "dividendYield": "0.00120000",
+     "priceToBook": "23.9800",
+     "lastCashAmount": "0.250000",
+     "apy": null,
+     "wso": "24147000000",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": "7.9900",
+     "priceToSales": "18.1200",
+     "enterpriseValue": "5501467860000.00",
+     "evToEbitda": "27.3300",
+     "returnOnEquity": "0.8423",
+     "returnOnAssets": "0.6022",
+     "freeCashFlow": "127006000000.00",
+     "debtToEquity": "0.1500"
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 3
+   },
+   "success": true
+  },
+  "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "MSTRB",
+    "ticker": "MSTR",
+    "tokenInfo": {
+     "price": "159.49",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "-7.7",
+     "priceChangePct24h": "-4.606",
+     "totalHolders": null,
+     "sharesMultiplier": "1",
+     "volume24h": "112692073",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": null,
+     "maxSupply": null,
+     "bnTrader": "1457",
+     "bnHolder": "781"
+    },
+    "stockInfo": {
+     "price": null,
+     "priceHigh52w": "365.2100",
+     "priceLow52w": "81.8100",
+     "volume": "700227",
+     "averageVolume": null,
+     "avgVolume30d": "27521006",
+     "sharesOutstanding": null,
+     "marketCap": "64439085252.00",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": null,
+     "dividendYield": "0.00000000",
+     "priceToBook": "1.8300",
+     "lastCashAmount": "0.000000",
+     "apy": null,
+     "wso": "397281660",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": "-28.3300",
+     "priceToSales": "145.2400",
+     "enterpriseValue": "72937234710.00",
+     "evToEbitda": "5.2100",
+     "returnOnEquity": "-0.3071",
+     "returnOnAssets": "-0.2074",
+     "freeCashFlow": "-64599000.00",
+     "debtToEquity": "0.2200"
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 3
+   },
+   "success": true
+  },
+  "0x7425889fe94f9d693e8daefe88bcced6acfef4c0": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "symbol": "METAB",
+    "ticker": "META",
+    "tokenInfo": {
+     "price": "731.100635803131334965",
+     "priceHigh24h": null,
+     "priceLow24h": null,
+     "priceChange24h": "-8.464638536874902277",
+     "priceChangePct24h": "-1.145",
+     "totalHolders": null,
+     "sharesMultiplier": "1.00054829041074495",
+     "volume24h": "438357904",
+     "marketCap": null,
+     "fdv": null,
+     "circulatingSupply": null,
+     "maxSupply": null,
+     "bnTrader": "988",
+     "bnHolder": "181"
+    },
+    "stockInfo": {
+     "price": null,
+     "priceHigh52w": "763.9000",
+     "priceLow52w": "520.2600",
+     "volume": "602148",
+     "averageVolume": null,
+     "avgVolume30d": "19751803",
+     "sharesOutstanding": null,
+     "marketCap": "1895599382023.00",
+     "turnoverRate": null,
+     "amplitude": null,
+     "priceToEarnings": "27.8400",
+     "dividendYield": "0.00280000",
+     "priceToBook": "7.2600",
+     "lastCashAmount": "0.525000",
+     "apy": null,
+     "wso": "2547506225",
+     "perShareValuation": null,
+     "positionMarketValue": null,
+     "discount": null,
+     "shareHeld": null,
+     "valuation": null,
+     "marketReferenceValuation": null,
+     "eps": "26.7300",
+     "priceToSales": "8.3100",
+     "enterpriseValue": "1963801382023.00",
+     "evToEbitda": "17.9100",
+     "returnOnEquity": "0.2607",
+     "returnOnAssets": "0.1513",
+     "freeCashFlow": "40976000000.00",
+     "debtToEquity": "0.3200"
+    },
+    "statusInfo": {
+     "openState": true,
+     "marketStatus": null,
+     "reasonCode": "TRADING",
+     "reasonMsg": null,
+     "nextOpenTime": null,
+     "nextCloseTime": null
+    },
+    "limitInfo": null,
+    "type": 3
+   },
+   "success": true
+  }
+ },
+ "status": {
+  "0x7313ea16493b2f55054df0131a3a14b043ec8992": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": "premarket",
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": 1790256660000,
+    "nextCloseTime": 1790256540000
+   },
+   "success": true
+  },
+  "0xa9ee28c80f960b889dfbd1902055218cba016f75": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": "premarket",
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": 1790256660000,
+    "nextCloseTime": 1790256540000
+   },
+   "success": true
+  },
+  "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": "premarket",
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": 1790256660000,
+    "nextCloseTime": 1790256540000
+   },
+   "success": true
+  },
+  "0x96702be57cd9777f835117a809c7124fe4ec989a": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  },
+  "0xae2f842ef90c0d5213259ab82639d5bbf649b08e": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  },
+  "0xc845b2894dbddd03858fd2d643b4ef725fe0849d": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  },
+  "0x02fca66c1d1afb4e2a7884261eb00f63598a7436": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  },
+  "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  },
+  "0x7425889fe94f9d693e8daefe88bcced6acfef4c0": {
+   "code": "000000",
+   "message": null,
+   "messageDetail": null,
+   "data": {
+    "openState": true,
+    "marketStatus": null,
+    "reasonCode": "TRADING",
+    "reasonMsg": null,
+    "nextOpenTime": null,
+    "nextCloseTime": null
+   },
+   "success": true
+  }
+ },
+ "quotes": {
+  "0x7313ea16493b2f55054df0131a3a14b043ec8992": {
+   "success": false,
+   "error": {
+    "code": 10003002,
+    "name": "SESSION_EXPIRED",
+    "message": "Please log in first."
+   }
+  },
+  "0xa9ee28c80f960b889dfbd1902055218cba016f75": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0x96702be57cd9777f835117a809c7124fe4ec989a": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0xae2f842ef90c0d5213259ab82639d5bbf649b08e": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0xc845b2894dbddd03858fd2d643b4ef725fe0849d": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0x02fca66c1d1afb4e2a7884261eb00f63598a7436": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  },
+  "0x7425889fe94f9d693e8daefe88bcced6acfef4c0": {
+   "success": false,
+   "error": {
+    "code": 10003000,
+    "name": "NOT_LOGGED_IN",
+    "message": "Not logged in"
+   }
+  }
+ }
+}
