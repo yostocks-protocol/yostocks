@@ -1,11 +1,19 @@
 // yostocks Telegram bot: /quote and /buy on top of the guarded agent. Long polling, no dependencies.
-import { realpathSync } from 'node:fs'
+import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { scan, format, execute } from '../agent/yo.mjs'
+import { parseStrategy, validate, describe } from './strategy.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
 const OWNER = process.env.YO_OWNER_CHAT_ID // only this chat may use the wallet
 const QUOTE_TTL = 60_000 // a Confirm button older than this re-quotes instead of trading
+const DATA = process.env.YO_DATA ?? new URL('./data/strategies.json', import.meta.url).pathname
+
+export const store = {
+  load: () => { try { return JSON.parse(readFileSync(DATA, 'utf8')) } catch { return [] } },
+  save: (list) => { mkdirSync(dirname(DATA), { recursive: true }); writeFileSync(DATA, JSON.stringify(list, null, 1)) },
+}
 
 export function parse(text = '') {
   const [cmd, ticker, amount] = text.trim().split(/\s+/)
@@ -34,9 +42,19 @@ const pending = new Map()
 export async function onMessage(msg) {
   const chat = msg.chat.id
   if (String(chat) !== OWNER) return say(chat, `yostocks is private. Your chat id: ${chat}\nSet YO_OWNER_CHAT_ID=${chat} to use it.`)
+  const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
+  const name = head?.replace(/@.*$/, '').toLowerCase()
+  if (name === '/strategy') return onStrategy(chat, rest.join(' '))
+  if (name === '/strategies') return say(chat, store.load().map((s) => `#${s.id}\n· ${describe(s.rule)}`).join('\n\n') || 'no strategies yet')
+  if (name === '/stop') {
+    const list = store.load()
+    const keep = list.filter((s) => s.id !== rest[0])
+    store.save(keep)
+    return say(chat, keep.length < list.length ? `stopped #${rest[0]}` : `no strategy #${rest[0] ?? ''}`)
+  }
   const p = parse(msg.text)
   if (p.error) return say(chat, p.error)
-  if (!p.ticker) return say(chat, 'yo 👋\n/quote NVDA 10  compare Ondo · xStocks · bStocks\n/buy NVDA 10    buy from the best safe route')
+  if (!p.ticker) return say(chat, 'yo 👋\n/quote NVDA 10  compare Ondo · xStocks · bStocks\n/buy NVDA 10    buy from the best safe route\n/strategy buy $10 of NVDA every Monday, skip earnings\n/strategies      list · /stop <id>')
 
   const s = await scan(p.ticker, p.usdt)
   if (p.cmd === '/quote' || !s.best) return say(chat, format(s))
@@ -47,6 +65,18 @@ export async function onMessage(msg) {
   })
 }
 
+async function onStrategy(chat, text) {
+  if (!text) return say(chat, 'usage: /strategy buy $10 of NVDA every Monday 9pm, skip earnings weeks')
+  const rule = await parseStrategy(text)
+  const errors = validate(rule)
+  if (errors.length) return say(chat, `can't save this:\n· ${errors.join('\n· ')}`)
+  const id = Math.random().toString(36).slice(2, 8)
+  pending.set(id, { rule, at: Date.now() })
+  return say(chat, `${describe(rule)}\n\nsave this strategy?`, {
+    reply_markup: { inline_keyboard: [[{ text: '💾 Save', callback_data: `save:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] },
+  })
+}
+
 export async function onCallback(q) {
   const chat = q.message.chat.id
   const [action, id] = q.data.split(':')
@@ -54,7 +84,12 @@ export async function onCallback(q) {
   pending.delete(id) // one tap = one decision, even on double-tap
   await tg('answerCallbackQuery', { callback_query_id: q.id })
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
-  if (String(chat) !== OWNER || !p || action !== 'buy') return say(chat, p ? 'cancelled' : 'expired, send /buy again')
+  if (String(chat) !== OWNER || !p || action === 'no') return say(chat, p ? 'cancelled' : 'expired, send /buy again')
+  if (action === 'save' && p.rule) {
+    store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
+    return say(chat, `saved #${id}\n· ${describe(p.rule)}`)
+  }
+  if (action !== 'buy' || !p.ticker) return say(chat, 'expired, send /buy again')
   if (Date.now() - p.at > QUOTE_TTL) return say(chat, 'quote is older than 60s, send /buy again')
 
   // Re-run the guard right before trading: the quote the user saw may have moved.
