@@ -50,6 +50,7 @@ network = "bsc-mainnet"
 # zero-deposit default. `bag llm activate` creates the key with $0
 # allocation; switch to a paid model + `bag llm topup` only when you need it.
 initial_allocation_usd = 0
+key_hash = "fa66aa588ada3860c8e190ab52afbef8a67044ef1b6aa27be588bad4244069d9"
 
 [llm.auto_renew]
 # hook auto-allocates from Pieverse Account Balance to the API key when Key
