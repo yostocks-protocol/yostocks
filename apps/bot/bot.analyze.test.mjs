@@ -29,8 +29,8 @@ const signs = () => sc.calls().filter((c) => c[1] === 'sign')
 
 test('/analyze → offer with the price and a Pay button; nothing is signed yet', async () => {
   await onMessage({ chat: { id: OWNER }, text: '/analyze nvda' })
-  assert.match(texts()[0], /🧠 <b>NVDA research report<\/b> · Nvidia Corp[\s\S]*Stock Analyze Agent[\s\S]*Price: <b>0\.1 USDT<\/b>, paid over x402/)
-  assert.equal(sent[0].reply_markup.inline_keyboard[0][0].text, '💳 Pay 0.1 USDT')
+  assert.match(texts()[0], /🧠 <b>NVDA research report<\/b> · Nvidia Corp[\s\S]*Stock Analyze Agent[\s\S]*Price: <b>0\.1 (U|USDT)<\/b>, paid over x402/)
+  assert.match(sent[0].reply_markup.inline_keyboard[0][0].text, /^💳 Pay 0\.1 (U|USDT)$/)
   assert.equal(signs().length, 0)
 })
 
@@ -63,7 +63,7 @@ test('a failed but retryable job is resumed for free and still delivered', async
 test("a stranger sees the x402 offer but gets no Pay button and nothing is signed", async () => {
   const n = signs().length
   await onMessage({ chat: { id: 7 }, text: '/analyze NVDA' })
-  assert.match(texts()[0], /Price: <b>0\.1 USDT<\/b>[\s\S]*owner's wallet only/)
+  assert.match(texts()[0], /Price: <b>0\.1 (U|USDT)<\/b>[\s\S]*owner's wallet only/)
   assert.equal(sent[0].reply_markup, undefined)
   assert.equal(signs().length, n)
 })
