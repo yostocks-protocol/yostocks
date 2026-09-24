@@ -46,6 +46,15 @@ node yo.mjs sell NVDA        # sell all you hold (or: sell NVDA 0.01)
 | `YO_SLIPPAGE` | `1` | swap slippage % |
 | `BAW` | `baw` | path to the `baw` binary |
 
+## Research before you buy (x402)
+
+`/analyze NVDA` buys a research report from BNB Agent Studio's **Stock Analyze Agent** (rating, target price,
+fundamentals, technicals, risks) for ~0.1 USDT, paid **agent-to-agent over x402** from the Agentic Wallet:
+402 challenge → `baw x402-payment preview` → your 💳 Pay tap → `sign` → replay with `PAYMENT-SIGNATURE` →
+job id + token saved to disk before anything else → the bot polls in the background and sends a summary plus
+the full report as a file. It never signs twice (503 `settlement_pending` replays the same proof, 429 doesn't
+re-sign), and a failed-but-retryable job is resumed for free.
+
 ## Telegram bot
 
 ```sh
