@@ -12,6 +12,9 @@ const NO_LIQ = { success: false, error: { code: 100, name: 'SERVICE_ERROR', mess
 
 let out
 if (f.auth) out = { success: false, error: { code: 10003000, name: f.auth, message: 'Not logged in' } }
+else if (args[0] === 'x402-payment' && args[1] === 'preview') out = f.x402Preview ?? { success: true, data: { paymentId: 'pay-1', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USDT', amount: '0.100000000000000000', needApproveFirst: false }] } }
+else if (args[0] === 'x402-payment' && args[1] === 'sign') out = f.x402Sign ?? { success: true, data: { paymentHeaderName: 'PAYMENT-SIGNATURE', paymentHeaderValue: `sig-for-${arg('--paymentId')}-${arg('--selectedIndex')}`, approveTxHash: null } }
+else if (args[0] === 'wallet' && args[1] === 'tx-history') out = { success: true, data: { transactions: [{ txHash: arg('--tx'), status: 'confirmed' }] } }
 else if (args[0] === 'wallet' && args[1] === 'balance') out = { success: true, data: f.balances ?? [] }
 else if (args[1] === 'quote' && arg('--toToken').toLowerCase() === USDT) out = f.sellQuotes?.[arg('--fromToken').toLowerCase()] ?? NO_LIQ
 else if (args[1] === 'quote') out = f.quotes?.[arg('--toToken').toLowerCase()] ?? NO_LIQ
