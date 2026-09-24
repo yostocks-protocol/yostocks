@@ -126,6 +126,9 @@ export const stillPending = (orderId) => `⏳ <b>Still confirming.</b>\nThe orde
 
 export function problem(message) {
   if (/auth signin|SESSION_EXPIRED|NOT_LOGGED_IN/.test(message)) return '🔐 <b>Wallet session expired.</b>\nSign in again: <code>baw auth signin</code>'
+  // x402 merchant said no before settling: the signed authorization was never executed, so no funds moved.
+  const x402 = /rejected the paid request.*?(payment_rejected|settlement_failed)"?(?:,\s*"reason":\s*"([a-z_]+)")?/.exec(message)
+  if (x402) return `⚠️ <b>Payment didn't go through, nothing was charged.</b>\nThe provider said: <code>${esc(x402[1])}${x402[2] ? ` (${esc(x402[2])})` : ''}</code>. You can try again.`
   return `⚠️ <b>Something went wrong</b>\n<code>${esc(message)}</code>`
 }
 

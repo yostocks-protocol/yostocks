@@ -103,3 +103,11 @@ test('macro card from the real paid calendar: headline, high-impact events, Fed,
   const hot = ui.macroCard({ week: 'w', events: [{ day: 'Wednesday', event: 'US CPI', currency: 'USD', impact: 'high' }], paid: '0.1 USD1' })
   assert.match(hot, /1 high-impact US release this week\. Expect bigger swings around Wednesday/)
 })
+
+test('x402 merchant rejections read as "nothing was charged" with the provider reason', () => {
+  const settle = ui.problem('macropulse.theaslangroupllc.com rejected the paid request (USD1 via eip3009): 402 {"error":"settlement_failed","reason":"invalid_transaction_state"}')
+  assert.match(settle, /Payment didn't go through, nothing was charged[\s\S]*settlement_failed \(invalid_transaction_state\)/)
+  const rej = ui.problem('stock-agent.bnbchain.org rejected the paid request (U via eip3009): 402 {"errorCode": "payment_rejected"} {"success":false}')
+  assert.match(rej, /nothing was charged[\s\S]*payment_rejected/)
+  assert.match(ui.problem('swap rejected: boom'), /Something went wrong/)
+})
