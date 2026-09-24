@@ -55,6 +55,13 @@ Confirm re-runs the guard (quotes older than 60s are refused) before swapping. O
 (1–1000 USDT, premium cap ≤ 1%), and anything the rule can't express (selling, stop-losses, several stocks) is
 refused, not approximated. Needs `OPENAI_API_KEY` in `.env`. `/strategies` lists, `/stop <id>` removes.
 
+Saved strategies run on their own. Every minute the bot checks which rules are due; each run goes
+through the same guard as `/buy`, then the rule's conditions (earnings limits, premium cap), then a
+**daily spend cap across all strategies** (`YO_DAILY_CAP`, default 50 USDT, pending orders count).
+Every run is reported in Telegram: filled with the BscScan link, skipped with the reason, or an error
+such as an expired wallet session. A slot missed by more than 2h (bot was down) is skipped, not
+run late, and a slot is never run twice.
+
 ## Testing
 
 ```sh
