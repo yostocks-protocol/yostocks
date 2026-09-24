@@ -2,7 +2,15 @@
   "name": "@yostocks/agent",
   "version": "0.1.0",
   "type": "module",
-  "bin": { "yo": "./yo.mjs" },
-  "scripts": { "test": "node --test" },
-  "engines": { "node": ">=22" }
+  "bin": {
+    "yo": "./yo.mjs"
+  },
+  "scripts": {
+    "test": "node --test yo.test.mjs 'test/*.test.mjs'",
+    "test:live": "node --test 'test/*.live.mjs'",
+    "record": "node test/record-fixtures.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
 }
