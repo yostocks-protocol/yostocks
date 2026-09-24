@@ -39,9 +39,21 @@ node yo.mjs buy NVDA 100     # asks before swapping; --yes to skip
 | `YO_SLIPPAGE` | `1` | swap slippage % |
 | `BAW` | `baw` | path to the `baw` binary |
 
+## Telegram bot
+
+```sh
+cp .env.example .env     # TELEGRAM_BOT_TOKEN from @BotFather
+npm start -w apps/bot    # message the bot once, it replies with your chat id
+                         # put it in YO_OWNER_CHAT_ID and restart
+```
+
+`/quote NVDA 10` shows the guarded comparison. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
+Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet.
+
 ## Layout
 
 - `apps/agent`: the CLI agent (`yo`), zero dependencies. `npm test` runs its guard tests.
+- `apps/bot`: Telegram bot on top of the agent, zero dependencies.
 - `probe/`: throwaway research scripts.
 - `DX_LOG.md`: developer-experience friction log for the hackathon DX report.
 
