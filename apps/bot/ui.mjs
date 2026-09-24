@@ -20,8 +20,8 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 export const privateBot = (chat) => `🔒 <b>yostocks is private.</b>\nYour chat id is <code>${esc(chat)}</code>. Set <code>YO_OWNER_CHAT_ID=${esc(chat)}</code> to use it.`
 
 /** Guarded comparison of every provider for one ticker (output of scan()). */
-export function quoteCard({ ticker, usdt, ref, rows, best }, { ask = false } = {}) {
-  const lines = [`<b>${esc(ticker)}</b> · quote for <b>${esc(usdt)} USDT</b>`, `Reference price <b>${usd(ref)}</b> / share`, '']
+export function quoteCard({ ticker, usdt, ref, rows, best }, { ask = false, company } = {}) {
+  const lines = [`<b>${esc(ticker)}</b>${company ? ` · ${esc(company)}` : ''} · quote for <b>${esc(usdt)} USDT</b>`, `Reference price <b>${usd(ref)}</b> / share`, '']
   const order = [...rows].sort((a, b) => (b === best) - (a === best) || b.ok - a.ok)
   for (const r of order) {
     const name = `${PROVIDER[r.t.type]} · ${esc(r.t.symbol)}`
@@ -43,13 +43,13 @@ export const buttons = (id, usdt, symbol) => ({
 export const submitting = (usdt, symbol, orderId) => `⏳ <b>Order submitted</b> · ${esc(usdt)} USDT → ${esc(symbol)}\nConfirming on BNB Smart Chain… <code>${esc(orderId)}</code>`
 
 /** Caption for the filled-order receipt. `ref` and `best` come from the scan() that was traded. */
-export function receipt({ ticker, usdt, ref, best, got, tx, orderId }) {
+export function receipt({ ticker, company, usdt, ref, best, got, tx, orderId }) {
   const avg = Number(usdt) / (Number(got) * best.multiplier)
   const vsRef = ref ? (avg / ref - 1) * 100 : null
   return [
     '✅ <b>Order filled</b>',
     '',
-    `<b>${qty(got)} ${esc(best.t.symbol)}</b> · ${esc(ticker)} on ${PROVIDER[best.t.type]}`,
+    `<b>${qty(got)} ${esc(best.t.symbol)}</b> · ${company ? `${esc(company)} (${esc(ticker)})` : esc(ticker)} on ${PROVIDER[best.t.type]}`,
     `Paid: <b>${Number(usdt).toFixed(2)} USDT</b>`,
     `Avg price: <b>${usd(avg)}</b> / share${vsRef != null ? ` (${pct(vsRef)} vs ${esc(ticker)})` : ''}`,
     'Network: BNB Smart Chain',

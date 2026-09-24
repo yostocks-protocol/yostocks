@@ -37,8 +37,22 @@ async function tg(method, body) {
 
 export const brand = { logo: null } // file_id of the bot's own profile photo, found at startup
 const say = (chat_id, html, extra = {}) => tg('sendMessage', { chat_id, text: html, parse_mode: 'HTML', disable_web_page_preview: true, ...extra })
-// Receipts and /start carry the logo; without one (tests, no avatar) they fall back to plain text.
-const card = (chat_id, html) => (brand.logo ? tg('sendPhoto', { chat_id, photo: brand.logo, caption: html, parse_mode: 'HTML' }) : say(chat_id, html))
+// Cards carry a picture (the stock's logo, else the bot's); with neither they fall back to plain text.
+const card = (chat_id, html, { photo = brand.logo, ...extra } = {}) =>
+  photo ? tg('sendPhoto', { chat_id, photo, caption: html, parse_mode: 'HTML', ...extra }) : say(chat_id, html, extra)
+
+const metaCache = new Map()
+/** Stock logo URL + company name for a token from Binance RWA meta; null if unavailable. */
+export async function stockMeta(token) {
+  const a = token.contractAddress.toLowerCase()
+  if (!metaCache.has(a)) {
+    const m = await fetch(`https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa/meta/ai?chainId=56&contractAddress=${a}`, {
+      headers: { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' },
+    }).then((r) => r.json()).then((j) => j.data).catch(() => null)
+    metaCache.set(a, m?.icon ? { photo: `https://bin.bnbstatic.com${m.icon}`, company: m.companyInfo?.companyName } : null)
+  }
+  return metaCache.get(a)
+}
 
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process
 const pending = new Map()
@@ -61,10 +75,12 @@ export async function onMessage(msg) {
   if (!p.ticker) return card(chat, ui.HELP)
 
   const s = await scan(p.ticker, p.usdt)
-  if (p.cmd === '/quote' || !s.best) return say(chat, ui.quoteCard(s))
+  const m = await stockMeta((s.best ?? s.rows[0]).t)
+  const photo = m?.photo ?? brand.logo
+  if (p.cmd === '/quote' || !s.best) return card(chat, ui.quoteCard(s, { company: m?.company }), { photo })
   const id = Math.random().toString(36).slice(2, 10)
   pending.set(id, { ...p, at: Date.now() })
-  await say(chat, ui.quoteCard(s, { ask: true }), { reply_markup: ui.buttons(id, p.usdt, s.best.t.symbol) })
+  await card(chat, ui.quoteCard(s, { ask: true, company: m?.company }), { photo, reply_markup: ui.buttons(id, p.usdt, s.best.t.symbol) })
 }
 
 async function onStrategy(chat, text) {
@@ -99,7 +115,8 @@ export async function onCallback(q) {
   if (!s.best) return say(chat, ui.quoteCard(s))
   const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, ui.submitting(p.usdt, s.best.t.symbol, orderId)))
   if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
-  return card(chat, ui.receipt({ ticker: p.ticker, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx, orderId: r.orderId }))
+  const m = await stockMeta(s.best.t)
+  return card(chat, ui.receipt({ ticker: p.ticker, company: m?.company, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx, orderId: r.orderId }), { photo: m?.photo ?? brand.logo })
 }
 
 async function main() {
