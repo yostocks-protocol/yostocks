@@ -4,14 +4,14 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FIXTURE, FAKE_BAW, mockFetch, scenario, fakeAnalyst } from '../agent/test/helpers.mjs'
+import { FIXTURE, FAKE_BAW, mockFetch, scenario, fakeAnalyst, fakeCmc } from '../agent/test/helpers.mjs'
 
 const OWNER = 42
 const sc = scenario({})
 const dir = mkdtempSync(join(tmpdir(), 'yo-an-'))
 Object.assign(process.env, {
   BAW: FAKE_BAW, FAKE_BAW: sc.file, TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER),
-  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1',
+  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1', YO_CMC_URL: 'https://cmc.test/x402/mcp',
 })
 const { onMessage, onCallback, watchJob } = await import('./bot.mjs')
 
@@ -76,4 +76,25 @@ test('offer shows instantly; if the live price is higher at Pay time, nothing is
   await tap(sent[0].reply_markup.inline_keyboard[0][0].callback_data)
   assert.equal(signs().length, n)
   assert.match(texts().at(-1), /price is now 0\.5 USDT\. Nothing was paid/)
+})
+
+// ---- /market (CoinMarketCap over x402) ----
+
+test('/market → offer with Pay → one payment → market card with the metrics', async () => {
+  const fc = fakeCmc({ mode: 'sse' })
+  restore(); restore = mockFetch(FIXTURE, { tg: (method, body) => { sent.push({ method, ...body }); return ['sendMessage', 'sendPhoto'].includes(method) ? { message_id: ++msgId } : true }, other: (u, i) => (u.hostname === 'cmc.test' ? fc.handler(u, i) : fa.handler(u, i)) })
+  sc.set({ x402Preview: { success: true, data: { paymentId: 'pm', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'U', amount: '0.010000000000000000', assetTransferMethod: 'eip3009' }] } } })
+  await onMessage({ chat: { id: OWNER }, text: '/market' })
+  assert.match(texts()[0], /Crypto market snapshot/)
+  assert.equal(fc.seen.length, 0, 'nothing fetched before Pay')
+  const n = signs().length
+  await tap(sent[0].reply_markup.inline_keyboard[0][0].callback_data)
+  assert.equal(signs().length, n + 1)
+  assert.match(texts().at(-1), /Total market cap: <b>\$3\.91T<\/b> \(−1\.23% 24h\)[\s\S]*BTC dominance: <b>57\.8%<\/b> · ETH 12\.4%[\s\S]*✅ Paid <b>0\.01 U<\/b> over x402/)
+})
+
+test('stranger /market sees the offer without a Pay button', async () => {
+  await onMessage({ chat: { id: 9 }, text: '/market' })
+  assert.match(texts()[0], /Crypto market snapshot[\s\S]*owner's wallet only/)
+  assert.equal(sent[0].reply_markup, undefined)
 })
