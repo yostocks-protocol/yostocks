@@ -1,9 +1,10 @@
-// yostocks Telegram bot: /quote and /buy on top of the guarded agent. Long polling, no dependencies.
+// yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { scan, format, execute } from '../agent/yo.mjs'
+import { scan, execute } from '../agent/yo.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
+import * as ui from './ui.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
@@ -34,46 +35,46 @@ async function tg(method, body) {
   return j.result
 }
 
-const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
-const say = (chat_id, text, extra = {}) => tg('sendMessage', { chat_id, text: `<pre>${esc(text)}</pre>`, parse_mode: 'HTML', ...extra })
+export const brand = { logo: null } // file_id of the bot's own profile photo, found at startup
+const say = (chat_id, html, extra = {}) => tg('sendMessage', { chat_id, text: html, parse_mode: 'HTML', disable_web_page_preview: true, ...extra })
+// Receipts and /start carry the logo; without one (tests, no avatar) they fall back to plain text.
+const card = (chat_id, html) => (brand.logo ? tg('sendPhoto', { chat_id, photo: brand.logo, caption: html, parse_mode: 'HTML' }) : say(chat_id, html))
 
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process
 const pending = new Map()
 
 export async function onMessage(msg) {
   const chat = msg.chat.id
-  if (String(chat) !== OWNER) return say(chat, `yostocks is private. Your chat id: ${chat}\nSet YO_OWNER_CHAT_ID=${chat} to use it.`)
+  if (String(chat) !== OWNER) return say(chat, ui.privateBot(chat))
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
-  if (name === '/strategies') return say(chat, store.load().map((s) => `#${s.id}\n· ${describe(s.rule)}`).join('\n\n') || 'no strategies yet')
+  if (name === '/strategies') return say(chat, ui.strategyList(store.load().map((s) => ({ id: s.id, description: describe(s.rule) }))))
   if (name === '/stop') {
     const list = store.load()
     const keep = list.filter((s) => s.id !== rest[0])
     store.save(keep)
-    return say(chat, keep.length < list.length ? `stopped #${rest[0]}` : `no strategy #${rest[0] ?? ''}`)
+    return say(chat, ui.notice(keep.length < list.length ? `Stopped strategy #${rest[0]}.` : `No strategy #${rest[0] ?? ''}.`))
   }
   const p = parse(msg.text)
-  if (p.error) return say(chat, p.error)
-  if (!p.ticker) return say(chat, 'yo 👋\n/quote NVDA 10  compare Ondo · xStocks · bStocks\n/buy NVDA 10    buy from the best safe route\n/strategy buy $10 of NVDA every Monday, skip earnings\n/strategies      list · /stop <id>')
+  if (p.error) return say(chat, ui.notice(p.error))
+  if (!p.ticker) return card(chat, ui.HELP)
 
   const s = await scan(p.ticker, p.usdt)
-  if (p.cmd === '/quote' || !s.best) return say(chat, format(s))
+  if (p.cmd === '/quote' || !s.best) return say(chat, ui.quoteCard(s))
   const id = Math.random().toString(36).slice(2, 10)
   pending.set(id, { ...p, at: Date.now() })
-  await say(chat, `${format(s)}\n\nswap ${p.usdt} USDT → ${s.best.t.symbol}?`, {
-    reply_markup: { inline_keyboard: [[{ text: '✅ Confirm', callback_data: `buy:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] },
-  })
+  await say(chat, ui.quoteCard(s, { ask: true }), { reply_markup: ui.buttons(id, p.usdt, s.best.t.symbol) })
 }
 
 async function onStrategy(chat, text) {
-  if (!text) return say(chat, 'usage: /strategy buy $10 of NVDA every Monday 9pm, skip earnings weeks')
+  if (!text) return say(chat, ui.notice('usage: /strategy buy $10 of NVDA every Monday 9pm, skip earnings weeks'))
   const rule = await parseStrategy(text)
   const errors = validate(rule)
-  if (errors.length) return say(chat, `can't save this:\n· ${errors.join('\n· ')}`)
+  if (errors.length) return say(chat, ui.strategyRejected(errors))
   const id = Math.random().toString(36).slice(2, 8)
   pending.set(id, { rule, at: Date.now() })
-  return say(chat, `${describe(rule)}\n\nsave this strategy?`, {
+  return say(chat, ui.strategyCard(describe(rule)), {
     reply_markup: { inline_keyboard: [[{ text: '💾 Save', callback_data: `save:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] },
   })
 }
@@ -85,31 +86,34 @@ export async function onCallback(q) {
   pending.delete(id) // one tap = one decision, even on double-tap
   await tg('answerCallbackQuery', { callback_query_id: q.id })
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
-  if (String(chat) !== OWNER || !p || action === 'no') return say(chat, p ? 'cancelled' : 'expired, send /buy again')
+  if (String(chat) !== OWNER || !p || action === 'no') return say(chat, ui.notice(p ? 'Cancelled.' : 'This button has expired. Send /buy again.'))
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
-    return say(chat, `saved #${id}\n· ${describe(p.rule)}`)
+    return say(chat, ui.strategySaved(id, describe(p.rule)))
   }
-  if (action !== 'buy' || !p.ticker) return say(chat, 'expired, send /buy again')
-  if (Date.now() - p.at > QUOTE_TTL) return say(chat, 'quote is older than 60s, send /buy again')
+  if (action !== 'buy' || !p.ticker) return say(chat, ui.notice('This button has expired. Send /buy again.'))
+  if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This quote is older than 60 seconds. Send /buy again for a fresh one.'))
 
   // Re-run the guard right before trading: the quote the user saw may have moved.
   const s = await scan(p.ticker, p.usdt)
-  if (!s.best) return say(chat, format(s))
-  const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, `submitted ${s.best.t.symbol} order ${orderId}, confirming…`))
-  return say(chat, r.status === 'FINISHED' ? `✓ filled ${s.best.t.symbol}\n${r.tx}` : `still pending: order ${r.orderId}`)
+  if (!s.best) return say(chat, ui.quoteCard(s))
+  const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, ui.submitting(p.usdt, s.best.t.symbol, orderId)))
+  if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
+  return card(chat, ui.receipt({ ticker: p.ticker, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx, orderId: r.orderId }))
 }
 
 async function main() {
   if (!TOKEN) throw new Error('set TELEGRAM_BOT_TOKEN')
   const me = await tg('getMe', {})
-  console.log(`@${me.username} running, owner chat ${OWNER ?? '(unset: send /start to get your id)'}`)
+  const photos = await tg('getUserProfilePhotos', { user_id: me.id, limit: 1 }).catch(() => null)
+  brand.logo = photos?.photos?.[0]?.at(-1)?.file_id ?? null // largest size of the current avatar
+  console.log(`@${me.username} running, owner chat ${OWNER ?? '(unset: send /start to get your id)'}, logo ${brand.logo ? 'yes' : 'no'}`)
   let running = false // one runner pass at a time; a slow swap must not start a second one
   setInterval(async () => {
     if (running) return
     running = true
     try {
-      const done = await runOnce({ store, scan, execute, say })
+      const done = await runOnce({ store, scan, execute, say: (chat, text) => say(chat, ui.autopilot(text)) })
       if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
     } catch (e) {
       console.error('runner', e)
@@ -126,7 +130,7 @@ async function main() {
       offset = u.update_id + 1
       const chat = u.message?.chat.id ?? u.callback_query?.message.chat.id
       const job = u.message?.text ? onMessage(u.message) : u.callback_query ? onCallback(u.callback_query) : null
-      job?.catch((e) => { console.error(e); say(chat, `✗ ${e.message}`).catch(() => {}) })
+      job?.catch((e) => { console.error(e); say(chat, ui.problem(e.message)).catch(() => {}) })
     }
   }
 }
