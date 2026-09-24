@@ -57,7 +57,9 @@ test('/quote replies with the guarded table, no buttons, no swap', async () => {
   sc.set({ quotes: goodNvda(10) })
   const n = swaps().length
   await onMessage(msg('/quote nvda 10'))
-  assert.match(texts()[0], /^<b>NVDA<\/b> · quote for <b>10 USDT<\/b>\nReference price <b>\$\d+\.\d\d<\/b> \/ share/)
+  assert.match(texts()[0], /^<b>NVDA<\/b> · Nvidia Corp · quote for <b>10 USDT<\/b>\nReference price <b>\$\d+\.\d\d<\/b> \/ share/)
+  assert.equal(sent[0].method, 'sendPhoto')
+  assert.equal(sent[0].photo, `https://bin.bnbstatic.com/logos/${addr('NVDAB')}.png`, 'logo of the best token')
   assert.match(texts()[0], /⭐ <b>bStocks · NVDAB<\/b>\n.*best route/)
   assert.match(texts()[0], /⛔ xStocks · NVDAx\n.*No liquidity/)
   assert.equal(sent[0].parse_mode, 'HTML')
@@ -84,7 +86,7 @@ test('/buy → Confirm re-runs the guard, swaps the best token once, reports the
   assert.equal(s[s.indexOf('--toToken') + 1], addr('NVDAB'))
   assert.ok(sent.some((x) => x.method === 'editMessageReplyMarkup'), 'buttons removed')
   assert.match(texts().join('\n'), /⏳ <b>Order submitted<\/b> · 10 USDT → NVDAB[\s\S]*o-7/)
-  assert.match(texts().at(-1), /✅ <b>Order filled<\/b>[\s\S]*NVDAB<\/b> · NVDA on bStocks[\s\S]*Paid: <b>10\.00 USDT<\/b>[\s\S]*<a href="https:\/\/bscscan\.com\/tx\/0xfeed">View on BscScan/)
+  assert.match(texts().at(-1), /✅ <b>Order filled<\/b>[\s\S]*NVDAB<\/b> · Nvidia Corp \(NVDA\) on bStocks[\s\S]*Paid: <b>10\.00 USDT<\/b>[\s\S]*<a href="https:\/\/bscscan\.com\/tx\/0xfeed">View on BscScan/)
 
   await tap(yes) // double tap
   assert.equal(swaps().length, n + 1, 'second tap must not trade again')
@@ -199,11 +201,32 @@ test('with a logo, receipts and /start go out as a photo with the text as captio
 
     sc.set({ quotes: goodNvda(10), swap: { success: true, data: { orderId: 'o-8' } }, orderStatus: 'FINISHED', txHash: '0xbeef' })
     await onMessage(msg('/buy NVDA 10'))
-    assert.equal(sent.at(-1).method, 'sendMessage', 'the quote itself stays text (buttons)')
+    assert.equal(sent.at(-1).method, 'sendPhoto', 'quote card is the stock logo with buttons')
+    assert.ok(sent.at(-1).reply_markup.inline_keyboard[0][0].callback_data.startsWith('buy:'))
     await tap(buttonData()[0])
     const r = sent.at(-1)
     assert.equal(r.method, 'sendPhoto')
+    assert.equal(r.photo, `https://bin.bnbstatic.com/logos/${addr('NVDAB')}.png`, 'receipt shows the stock bought')
     assert.match(r.caption, /✅ <b>Order filled<\/b>/)
     assert.ok(r.caption.length <= 1024, 'Telegram caption limit')
   } finally { brand.logo = null }
+})
+
+test('stock logo unavailable → falls back to the bot logo, then to plain text', async () => {
+  const { stockMeta } = await import('./bot.mjs')
+  const fx = structuredClone(FIXTURE)
+  fx.meta = { [addr('METAB')]: { success: false }, [addr('METAon')]: { success: false } }
+  restore(); restore = mockFetch(fx, { tg: (method, body) => { sent.push({ method, ...body }); return method === 'sendMessage' || method === 'sendPhoto' ? { message_id: ++msgId } : true } })
+  try {
+    assert.equal(await stockMeta({ contractAddress: addr('METAB') }), null)
+    const metaFair = (s) => 10 / (Number(FIXTURE.dynamic[addr('METAon')].data.stockInfo.price) * Number(FIXTURE.dynamic[addr(s)].data.tokenInfo.sharesMultiplier))
+    sc.set({ quotes: { [addr('METAB')]: quote(metaFair('METAB')) } })
+    brand.logo = 'BOT_LOGO'
+    await onMessage(msg('/quote META 10'))
+    assert.equal(sent[0].photo, 'BOT_LOGO')
+    brand.logo = null
+    sent = []
+    await onMessage(msg('/quote META 10'))
+    assert.equal(sent[0].method, 'sendMessage')
+  } finally { brand.logo = null; restore(); restore = mockFetch(FIXTURE, { tg: (method, body) => { sent.push({ method, ...body }); return method === 'sendMessage' || method === 'sendPhoto' ? { message_id: ++msgId } : true } }) }
 })

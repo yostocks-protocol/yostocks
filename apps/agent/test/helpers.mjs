@@ -20,7 +20,8 @@ export function mockFetch(fx = FIXTURE, { tg } = {}) {
     const u = new URL(url)
     if (u.hostname === 'www.binance.com') {
       const a = u.searchParams.get('contractAddress')?.toLowerCase()
-      const body = u.pathname.includes('/detail/list/') ? fx.list : u.pathname.includes('/dynamic/') ? fx.dynamic[a] : u.pathname.includes('/status/') ? fx.status[a] : null
+      const meta = { success: true, data: { icon: `/logos/${a}.png`, companyInfo: { companyName: 'Nvidia Corp' } } }
+      const body = u.pathname.includes('/detail/list/') ? fx.list : u.pathname.includes('/dynamic/') ? fx.dynamic[a] : u.pathname.includes('/status/') ? fx.status[a] : u.pathname.includes('/rwa/meta/') ? (fx.meta?.[a] ?? meta) : null
       if (!body) throw new Error(`unmocked ${url}`)
       return Response.json(body)
     }

@@ -9,6 +9,7 @@ const first = { ticker: 'NVDA', usdt: 5, ref: 223.19, best, got: '0.022409841731
 test('receipt: amount, average price per share (multiplier applied) and gap to the real price', () => {
   const r = ui.receipt(first)
   assert.match(r, /<b>0\.022410 NVDAB<\/b> · NVDA on bStocks/)
+  assert.match(ui.receipt({ ...first, company: 'Nvidia Corp' }), /<b>0\.022410 NVDAB<\/b> · Nvidia Corp \(NVDA\) on bStocks/)
   assert.match(r, /Paid: <b>5\.00 USDT<\/b>/)
   assert.match(r, /Avg price: <b>\$222\.94<\/b> \/ share \(−0\.11% vs NVDA\)/) // 5 / (0.02241 × 1.000778)
   assert.match(r, /<a href="https:\/\/bscscan\.com\/tx\/0xfe3a3f/)
