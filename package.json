@@ -7,6 +7,6 @@
   ],
   "scripts": {
     "test": "npm test --workspaces && npm test --prefix apps/yoguard/app/agent",
-    "test:live": "npm run test:live -w apps/agent && npm run test:live --prefix apps/yoguard/app/agent"
+    "test:live": "npm run test:live -w apps/agent && npm run test:live -w apps/bot && npm run test:live --prefix apps/yoguard/app/agent"
   }
 }
