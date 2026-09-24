@@ -90,15 +90,25 @@ export function format({ ticker, usdt, ref, rows, best }) {
 
 // Swap USDT → token and wait for a terminal state. An orderId is not a fill.
 export async function execute(token, usdt, onSubmit = () => {}) {
+  const since = Date.now() - 60_000
   const sub = await baw('market-order', 'swap', '--fromTokenQty', String(usdt), '--fromToken', USDT, '--toToken', token.contractAddress, '--binanceChainId', '56', '--slippage', SLIPPAGE)
   if (!sub.success) throw new Error(`swap rejected: ${JSON.stringify(sub.error)}`)
   const { orderId } = sub.data
   onSubmit(orderId)
+  const find = async () => {
+    const byId = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
+    if (byId) return byId
+    // The orderId from `swap` isn't always one `list` knows (#21), so match our order by token,
+    // amount and time. ponytail: two same-size buys of one token within a minute could swap matches.
+    const recent = (await baw('market-order', 'list', '--binanceChainId', '56', '--toToken', token.contractAddress, '--startTime', String(since), '--pageSize', '5')).data?.list ?? []
+    return recent.find((o) => o.fromToken?.toLowerCase() === USDT.toLowerCase() && Number(o.fromTokenQty) === Number(usdt))
+  }
+  // An orderId is not a fill: poll until FINISHED / FAILED.
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, POLL_MS))
-    const o = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
-    if (o?.status === 'FINISHED') return { orderId, status: 'FINISHED', tx: `https://bscscan.com/tx/${o.txHash}` }
-    if (o?.status === 'FAILED') throw new Error(`order ${orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
+    const o = await find()
+    if (o?.status === 'FINISHED') return { orderId: o.orderId, status: 'FINISHED', tx: `https://bscscan.com/tx/${o.txHash}`, got: o.toTokenActualQty }
+    if (o?.status === 'FAILED') throw new Error(`order ${o.orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
   }
   return { orderId, status: 'PENDING' }
 }

@@ -21,6 +21,12 @@ MSTR · 100 USDT · reference $158.82/share
 best: MSTRB → 0.628311 tokens
 ```
 
+## Mainnet proof
+
+First live buy through the Telegram bot on BSC mainnet (2026-09-24 19:48 WIB): `/buy NVDA 5` → guard picked
+bStocks (NVDAB −0.12% vs Ondo +0.32%, xStocks no liquidity) → 5 USDT → 0.022409841731513969 NVDAB,
+tx [`0xfe3a3f…04b9`](https://bscscan.com/tx/0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9).
+
 ## Run
 
 Requires Node ≥ 22 and the Binance Agentic Wallet CLI.
@@ -54,6 +60,13 @@ Confirm re-runs the guard (quotes older than 60s are refused) before swapping. O
 `YO_LLM_MODEL` to change; strict JSON-schema output) turns it into a fixed rule, shown back in plain words with a Save button. Fixed code enforces the bounds
 (1–1000 USDT, premium cap ≤ 1%), and anything the rule can't express (selling, stop-losses, several stocks) is
 refused, not approximated. Needs `OPENAI_API_KEY` in `.env`. `/strategies` lists, `/stop <id>` removes.
+
+Saved strategies run on their own. Every minute the bot checks which rules are due; each run goes
+through the same guard as `/buy`, then the rule's conditions (earnings limits, premium cap), then a
+**daily spend cap across all strategies** (`YO_DAILY_CAP`, default 50 USDT, pending orders count).
+Every run is reported in Telegram: filled with the BscScan link, skipped with the reason, or an error
+such as an expired wallet session. A slot missed by more than 2h (bot was down) is skipped, not
+run late, and a slot is never run twice.
 
 ## Testing
 

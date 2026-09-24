@@ -3,6 +3,7 @@ import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { scan, format, execute } from '../agent/yo.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
+import { runOnce } from './runner.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
@@ -103,6 +104,19 @@ async function main() {
   if (!TOKEN) throw new Error('set TELEGRAM_BOT_TOKEN')
   const me = await tg('getMe', {})
   console.log(`@${me.username} running, owner chat ${OWNER ?? '(unset: send /start to get your id)'}`)
+  let running = false // one runner pass at a time; a slow swap must not start a second one
+  setInterval(async () => {
+    if (running) return
+    running = true
+    try {
+      const done = await runOnce({ store, scan, execute, say })
+      if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
+    } catch (e) {
+      console.error('runner', e)
+    } finally {
+      running = false
+    }
+  }, 60_000)
   for (let offset = 0; ;) {
     const updates = await tg('getUpdates', { offset, timeout: 50, allowed_updates: ['message', 'callback_query'] }).catch((e) => {
       console.error(e.message)
