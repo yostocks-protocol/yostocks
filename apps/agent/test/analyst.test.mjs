@@ -8,7 +8,7 @@ import { FAKE_BAW, mockFetch, scenario, fakeAnalyst } from './helpers.mjs'
 
 const sc = scenario({})
 const JOBS = join(mkdtempSync(join(tmpdir(), 'yo-jobs-')), 'jobs.json')
-Object.assign(process.env, { BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_JOBS: JOBS, YO_ANALYST_URL: 'https://analyst.test' })
+Object.assign(process.env, { BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_JOBS: JOBS, YO_ANALYST_URL: 'https://analyst.test', YO_TX_POLL_MS: '1' })
 const analyst = await import('../analyst.mjs')
 
 let fa, restore
@@ -74,4 +74,18 @@ test('poll returns the report on success and summarize() extracts rating, target
   assert.match(s.target, /Target Price: \$260/)
   assert.deepEqual(s.risks, ['Valuation risk: premium multiple', 'Export-control risk in China'])
   await assert.rejects(analyst.poll({ jobId: 'job-1', jobToken: 'wrong' }), /HTTP 403/)
+})
+
+test('permit2 approve: `tx-history --tx` status SUCCESS is accepted (first live /analyze hung on this)', async () => {
+  sc.set({ txStatus: 'SUCCESS', x402Sign: { success: true, data: { paymentHeaderName: 'PAYMENT-SIGNATURE', paymentHeaderValue: 'sig', approveTxHash: '0x043a0a1e99a2f0f977b73e309c0e005a15970061bfffe334948e69d8f900bfd6' } } })
+  const job = await analyst.pay(await analyst.quote('NVDA'))
+  assert.equal(job.jobId, 'job-1')
+})
+
+test('permit2 approve that failed on-chain stops before the paid replay', async () => {
+  sc.set({ txStatus: 'FAILED', x402Sign: { success: true, data: { paymentHeaderName: 'PAYMENT-SIGNATURE', paymentHeaderValue: 'sig', approveTxHash: '0xbad' } } })
+  const replays = () => fa.seen.filter((r) => r.headers['payment-signature']).length
+  const n = replays()
+  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /approve 0xbad failed on-chain/)
+  assert.equal(replays(), n)
 })
