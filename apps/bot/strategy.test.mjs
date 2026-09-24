@@ -1,4 +1,4 @@
-// Unit: strategy rule bounds, description, and the Claude call contract (fake client, no network).
+// Unit: strategy rule bounds, description, and the OpenAI call contract (fake client, no network).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { validate, describe, parseStrategy, deps } from './strategy.mjs'
@@ -33,20 +33,28 @@ test('describe shows UTC and WIB and every condition', () => {
   assert.match(describe(rule({ every: 'day', weekday: null, skipEarnings: false, maxPremiumPct: null })), /every day[\s\S]*within the guard limit \(1%\)/)
 })
 
-test('parseStrategy calls Claude with structured output and returns the parsed rule', async () => {
+const reply = (x) => ({ status: 'completed', output: [], output_parsed: null, ...x })
+
+test('parseStrategy calls OpenAI with a strict JSON schema and returns the parsed rule', async () => {
   let req
-  deps.client = { messages: { parse: async (r) => { req = r; return { stop_reason: 'end_turn', parsed_output: rule() } } } }
+  deps.client = { responses: { parse: async (r) => { req = r; return reply({ output_parsed: rule() }) } } }
   assert.deepEqual(await parseStrategy('buy $10 NVDA every monday 9pm WIB skip earnings'), rule())
-  assert.equal(req.model, 'claude-opus-5')
-  assert.equal(req.output_config.effort, 'low')
-  assert.equal(req.output_config.format.type, 'json_schema')
-  assert.match(req.system, /WIB = UTC\+7/)
-  assert.equal(req.messages[0].content, 'buy $10 NVDA every monday 9pm WIB skip earnings')
+  assert.equal(req.model, process.env.YO_LLM_MODEL ?? 'gpt-5.4-mini')
+  assert.equal(req.reasoning.effort, 'low')
+  assert.equal(req.text.format.type, 'json_schema')
+  assert.equal(req.text.format.strict, true)
+  assert.match(req.instructions, /WIB = UTC\+7/)
+  assert.equal(req.input, 'buy $10 NVDA every monday 9pm WIB skip earnings')
 })
 
 test('refusal, truncation and unparseable output are errors, never a rule', async () => {
-  for (const res of [{ stop_reason: 'refusal', parsed_output: null }, { stop_reason: 'max_tokens', parsed_output: rule() }, { stop_reason: 'end_turn', parsed_output: null }]) {
-    deps.client = { messages: { parse: async () => res } }
+  const cases = [
+    reply({ output: [{ type: 'message', content: [{ type: 'refusal', refusal: 'no' }] }], output_parsed: rule() }),
+    reply({ status: 'incomplete', output_parsed: rule() }),
+    reply({ output_parsed: null }),
+  ]
+  for (const res of cases) {
+    deps.client = { responses: { parse: async () => res } }
     await assert.rejects(parseStrategy('x'), /declined|could not parse/)
   }
 })

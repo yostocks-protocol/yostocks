@@ -150,7 +150,7 @@ test('provider text is HTML-escaped inside <pre>', async () => {
 
 test('/strategy → Save persists the rule; /strategies lists it; /stop removes it', async () => {
   const rule = { ticker: 'NVDA', usdt: 10, every: 'week', weekday: 'mon', hourUtc: 14, skipEarnings: true, maxPremiumPct: 0.5, unsupported: [] }
-  deps.client = { messages: { parse: async () => ({ stop_reason: 'end_turn', parsed_output: rule }) } }
+  deps.client = { responses: { parse: async () => ({ status: 'completed', output: [], output_parsed: rule }) } }
   await onMessage(msg('/strategy buy $10 of NVDA every Monday, skip earnings, max 0.5% premium'))
   assert.match(texts()[0], /Buy 10 USDT of NVDA every Monday[\s\S]*save this strategy\?/)
   const [save] = buttonData()
@@ -174,7 +174,7 @@ test('/strategy → Save persists the rule; /strategies lists it; /stop removes 
 })
 
 test('/strategy with unsupported parts is refused with the reason, no Save button', async () => {
-  deps.client = { messages: { parse: async () => ({ stop_reason: 'end_turn', parsed_output: { ticker: 'NVDA', usdt: 10, every: 'day', weekday: null, hourUtc: 14, skipEarnings: false, maxPremiumPct: null, unsupported: ['sell half if it drops 10%'] } }) } }
+  deps.client = { responses: { parse: async () => ({ status: 'completed', output: [], output_parsed: { ticker: 'NVDA', usdt: 10, every: 'day', weekday: null, hourUtc: 14, skipEarnings: false, maxPremiumPct: null, unsupported: ['sell half if it drops 10%'] } }) } }
   await onMessage(msg('/strategy buy NVDA daily and sell half if it drops 10%'))
   assert.match(texts()[0], /can't save this[\s\S]*sell half if it drops 10%/)
   assert.equal(buttonData(), undefined)
@@ -182,7 +182,7 @@ test('/strategy with unsupported parts is refused with the reason, no Save butto
 
 test("a stranger can't use /strategy", async () => {
   let called = false
-  deps.client = { messages: { parse: async () => { called = true } } }
+  deps.client = { responses: { parse: async () => { called = true } } }
   await onMessage(msg('/strategy buy NVDA daily', 7))
   assert.equal(called, false)
 })
