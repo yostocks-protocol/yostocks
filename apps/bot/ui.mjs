@@ -11,6 +11,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 <b>Trade</b>
 /quote NVDA 10 · compare Ondo, xStocks and bStocks
 /buy NVDA 10 · buy from the safest, cheapest route
+/sell NVDA · sell what you hold (or /sell NVDA 0.01)
 
 <b>Autopilot</b>
 /strategy buy $10 of NVDA every Monday, skip earnings
@@ -21,6 +22,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 export const COMMANDS = [
   { command: 'quote', description: 'Compare a stock across Ondo, xStocks, bStocks · /quote NVDA 10' },
   { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
+  { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
   { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
   { command: 'strategies', description: 'Your saved strategies' },
   { command: 'stop', description: 'Remove a strategy · /stop <id>' },
@@ -52,7 +54,43 @@ export const buttons = (id, usdt, symbol) => ({
   inline_keyboard: [[{ text: `✅ Swap ${usdt} USDT → ${symbol}`, callback_data: `buy:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]],
 })
 
-export const submitting = (usdt, symbol, orderId) => `⏳ <b>Order submitted</b> · ${esc(usdt)} USDT → ${esc(symbol)}\nConfirming on BNB Smart Chain… <code>${esc(orderId)}</code>`
+/** Sell quote from scanSell(). */
+export function sellCard(s, { ask = false, company } = {}) {
+  const { ticker, ref, row, qty: amount, usdtOut, ok, perShare, dev, why } = s
+  const lines = [
+    `<b>${esc(ticker)}</b>${company ? ` · ${esc(company)}` : ''} · sell`,
+    `Selling <b>${qty(amount)} ${esc(row.t.symbol)}</b> (${PROVIDER[row.t.type]})`,
+    `Reference price <b>${usd(ref)}</b> / share`,
+    '',
+  ]
+  if (!ok) lines.push(`⛔ <b>Not selling.</b> <i>${esc(why)}</i>`)
+  else {
+    lines.push(`✅ Sell price <b>${usd(perShare)}</b> / share · ${pct(dev)}`, `You receive ≈ <b>${Number(usdtOut).toFixed(4)} USDT</b>`)
+    if (ask) lines.push('<i>Confirm within 60 seconds.</i>')
+  }
+  return lines.join('\n')
+}
+
+export const sellButtons = (id, amount, symbol) => ({
+  inline_keyboard: [[{ text: `✅ Sell ${qty(amount)} ${symbol} → USDT`, callback_data: `sell:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]],
+})
+
+export function sellReceipt({ ticker, company, row, qty: amount, ref, got, tx, orderId }) {
+  const avg = Number(got) / (Number(amount) * row.multiplier)
+  return [
+    '✅ <b>Sold</b>',
+    '',
+    `<b>${Number(got).toFixed(4)} USDT</b> for ${qty(amount)} ${esc(row.t.symbol)}`,
+    `${company ? `${esc(company)} (${esc(ticker)})` : esc(ticker)} on ${PROVIDER[row.t.type]}`,
+    `Avg price: <b>${usd(avg)}</b> / share (${pct((avg / ref - 1) * 100)} vs ${esc(ticker)})`,
+    'Network: BNB Smart Chain',
+    '',
+    `<a href="${esc(tx)}">View on BscScan ↗</a>`,
+    `<code>Order ${esc(orderId)}</code>`,
+  ].join('\n')
+}
+
+export const submitting = (from, to, orderId) => `⏳ <b>Order submitted</b> · ${esc(from)} → ${esc(to)}\nConfirming on BNB Smart Chain… <code>${esc(orderId)}</code>`
 
 /** Caption for the filled-order receipt. `ref` and `best` come from the scan() that was traded. */
 export function receipt({ ticker, company, usdt, ref, best, got, tx, orderId }) {
