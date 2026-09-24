@@ -4,14 +4,14 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { FIXTURE, FAKE_BAW, mockFetch, scenario, fakeAnalyst, fakeCmc } from '../agent/test/helpers.mjs'
+import { FIXTURE, FAKE_BAW, mockFetch, scenario, fakeAnalyst, fakeCmc, fakeMacro } from '../agent/test/helpers.mjs'
 
 const OWNER = 42
 const sc = scenario({})
 const dir = mkdtempSync(join(tmpdir(), 'yo-an-'))
 Object.assign(process.env, {
   BAW: FAKE_BAW, FAKE_BAW: sc.file, TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER),
-  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1', YO_ANALYST_PAY: '1', YO_CMC_URL: 'https://cmc.test/x402/mcp',
+  YO_ANALYST_URL: 'https://analyst.test', YO_JOBS: join(dir, 'jobs.json'), YO_DATA: join(dir, 's.json'), YO_JOB_POLL_MS: '1', YO_ANALYST_PAY: '1', YO_MACRO_URL: 'https://macro.test/api/calendar', YO_CMC_URL: 'https://cmc.test/x402/mcp',
 })
 const { onMessage, onCallback, watchJob } = await import('./bot.mjs')
 
@@ -106,4 +106,17 @@ test('with YO_ANALYST_PAY off (default), /analyze explains the pause and shows n
     assert.match(texts()[0], /Payments to this agent are paused[\s\S]*payment_rejected/)
     assert.equal(sent[0].reply_markup, undefined)
   } finally { process.env.YO_ANALYST_PAY = '1' }
+})
+
+test('/macro → offer → Pay → one payment → macro card with the tx', async () => {
+  const fm = fakeMacro()
+  restore(); restore = mockFetch(FIXTURE, { tg: (method, body) => { sent.push({ method, ...body }); return ['sendMessage', 'sendPhoto'].includes(method) ? { message_id: ++msgId } : true }, other: (u, i) => fm.handler(u, i) })
+  sc.set({ x402Preview: { success: true, data: { paymentId: 'pmac', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USD1', amount: '0.100000000000000000', assetTransferMethod: 'eip3009' }] } } })
+  await onMessage({ chat: { id: OWNER }, text: '/macro' })
+  assert.match(texts()[0], /This week's market-moving events/)
+  assert.equal(fm.seen.length, 0, 'nothing fetched before Pay')
+  const n = signs().length
+  await tap(sent[0].reply_markup.inline_keyboard[0][0].callback_data)
+  assert.equal(signs().length, n + 1)
+  assert.match(texts().at(-1), /Macro week of 2026-09-21[\s\S]*Fed: next decision[\s\S]*✅ Paid <b>0\.1 USD1<\/b>[\s\S]*bscscan\.com\/tx\/0xe21fbbfe/)
 })

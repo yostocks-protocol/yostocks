@@ -42,7 +42,7 @@ test('strategy list shows ids and bullet points, or a hint when empty', () => {
 })
 
 test('command menu fits Telegram limits and matches what the bot handles', () => {
-  const handled = ['quote', 'buy', 'sell', 'analyze', 'market', 'strategy', 'strategies', 'stop', 'start']
+  const handled = ['quote', 'buy', 'sell', 'analyze', 'macro', 'strategy', 'strategies', 'stop', 'start']
   assert.deepEqual(ui.COMMANDS.map((c) => c.command).sort(), handled.sort())
   for (const c of ui.COMMANDS) {
     assert.match(c.command, /^[a-z0-9_]{1,32}$/)
@@ -87,4 +87,19 @@ test('market card falls back to sections, then to a plain message; never "[objec
   const c = ui.marketCard({ sections: [{ title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39%' }] }], paid: '0.01 U' })
   assert.match(c, /<b>Market size<\/b>\n• Total crypto market cap: <b>2\.88 T<\/b>/)
   assert.match(ui.marketCard({ partial: true, paid: '0.01 U' }), /closed the connection/)
+})
+
+test('macro card from the real paid calendar: headline, high-impact events, Fed, US-stock takeaway, tx link', async () => {
+  const { digest } = await import('../agent/macro.mjs')
+  const { readFileSync } = await import('node:fs')
+  const raw = JSON.parse(readFileSync(new URL('../agent/test/fixtures/macro-calendar.json', import.meta.url), 'utf8'))
+  const c = ui.macroCard({ ...digest(raw), paid: '0.1 USD1', tx: '0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a' })
+  assert.match(c, /🗓 <b>Macro week of 2026-09-21<\/b>/)
+  assert.match(c, /🔴 Wednesday · SNB Rate Decision \(Swiss National Bank\) \(CHF\)/)
+  assert.match(c, /🏦 Fed: next decision <b>2026-10-28<\/b> · rate 3\.875%/)
+  assert.match(c, /no high-impact US releases this week/)
+  assert.match(c, /bscscan\.com\/tx\/0xe21fbbfe/)
+  assert.ok(!/[{}]|object Object/.test(c))
+  const hot = ui.macroCard({ week: 'w', events: [{ day: 'Wednesday', event: 'US CPI', currency: 'USD', impact: 'high' }], paid: '0.1 USD1' })
+  assert.match(hot, /1 high-impact US release this week\. Expect bigger swings around Wednesday/)
 })
