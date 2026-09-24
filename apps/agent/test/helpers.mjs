@@ -73,3 +73,24 @@ export function fakeAnalyst(state = {}) {
   }
   return { handler, seen, state }
 }
+
+/** A fake CoinMarketCap MCP x402 endpoint on cmc.test. state.mode: 'json' | 'sse' | 'cut' (close after payment) | 'reject'. */
+export function fakeCmc(state = {}) {
+  const seen = []
+  const metrics = { data: { quote: { USD: { total_market_cap: 3.91e12, total_volume_24h: 1.42e11, total_market_cap_yesterday_percentage_change: -1.23 } }, btc_dominance: 57.8, eth_dominance: 12.4 } }
+  const rpc = { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: JSON.stringify(metrics) }] } }
+  const handler = async (u, init) => {
+    const headers = Object.fromEntries(new Headers(init.headers ?? {}))
+    seen.push({ headers, body: init.body })
+    if (!headers['payment-signature']) return new Response('{"error":"Provide PAYMENT-SIGNATURE"}', { status: 402, headers: { 'payment-required': Buffer.from('{"x402Version":2}').toString('base64') } })
+    const pr = Buffer.from(JSON.stringify({ x402Version: 2, x402FlowId: '792cd109-29ce-441c-bf98-4bd3456d1b06', status: 'settled' })).toString('base64')
+    if (state.mode === 'reject') return new Response('{"error":"payment_rejected"}', { status: 402 })
+    if (state.mode === 'cut') {
+      const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('event: message\ndata: {"jsonrpc"')); c.error(new TypeError('terminated')) } })
+      return new Response(body, { status: 200, headers: { 'payment-response': pr } })
+    }
+    const text = state.mode === 'sse' ? `event: message\ndata: ${JSON.stringify(rpc)}\n\n` : JSON.stringify(rpc)
+    return new Response(text, { status: 200, headers: { 'payment-response': pr } })
+  }
+  return { handler, seen, state }
+}
