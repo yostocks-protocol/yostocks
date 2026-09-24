@@ -1,0 +1,6 @@
+{
+  "name": "yostocks",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": { "test": "npm test --workspaces" }
+}
