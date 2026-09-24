@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=../../.env bot.mjs",
-    "test": "node --test bot.test.mjs bot.flow.test.mjs"
+    "test": "node --test bot.test.mjs bot.flow.test.mjs strategy.test.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "zod": "^4.6.5"
   }
 }
