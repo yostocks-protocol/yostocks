@@ -42,7 +42,7 @@ test('strategy list shows ids and bullet points, or a hint when empty', () => {
 })
 
 test('command menu fits Telegram limits and matches what the bot handles', () => {
-  const handled = ['quote', 'buy', 'sell', 'analyze', 'strategy', 'strategies', 'stop', 'start']
+  const handled = ['quote', 'buy', 'sell', 'analyze', 'macro', 'strategy', 'strategies', 'stop', 'start']
   assert.deepEqual(ui.COMMANDS.map((c) => c.command).sort(), handled.sort())
   for (const c of ui.COMMANDS) {
     assert.match(c.command, /^[a-z0-9_]{1,32}$/)
@@ -65,4 +65,49 @@ test('sell card and sold receipt', () => {
   const r = ui.sellReceipt({ ...s, company: 'Nvidia Corp', got: '4.98', tx: 'https://bscscan.com/tx/0x5e11', orderId: 's-1' })
   assert.match(r, /✅ <b>Sold<\/b>[\s\S]*<b>4\.9800 USDT<\/b> for 0\.022410 NVDAB\nNvidia Corp \(NVDA\) on bStocks/)
   assert.match(r, /Avg price: <b>\$222\.05<\/b> \/ share \(−0\.12% vs NVDA\)/)
+})
+
+test('market card: human summary from the real CMC payload, with a sentiment takeaway, no raw JSON', async () => {
+  const { snapshot } = await import('../agent/cmc.mjs')
+  const { readFileSync } = await import('node:fs')
+  const raw = JSON.parse(readFileSync(new URL('../agent/test/fixtures/cmc-global.json', import.meta.url), 'utf8'))
+  const c = ui.marketCard({ snapshot: snapshot(raw), raw, paid: '0.01 U', flowId: '7eb5bf66-x' })
+  assert.match(c, /😊 Sentiment: <b>Greed<\/b> \(74\/100\) · last week 64/)
+  assert.match(c, /💰 Market cap: <b>\$2\.88T<\/b> · \+0\.39% today, \+10\.70% this week/)
+  assert.match(c, /📊 24h volume: <b>\$104B<\/b> \(−8\.98%\)/)
+  assert.match(c, /₿ BTC dominance: <b>58\.9%<\/b> · ETH 11\.4%/)
+  assert.match(c, /🔄 Altcoin season: <b>55\/100<\/b> \(yesterday 45\)/)
+  assert.match(c, /📈 Open interest: <b>\$394\.88B<\/b> \(−11\.01%\)/)
+  assert.match(c, /<b>What it means:<\/b> Greed: risk appetite is high/)
+  assert.match(c, /✅ Paid <b>0\.01 U<\/b> over x402 · <code>7eb5bf66<\/code>/)
+  assert.ok(!/[{}]|object Object/.test(c))
+})
+
+test('market card falls back to sections, then to a plain message; never "[object Object]"', () => {
+  const c = ui.marketCard({ sections: [{ title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39%' }] }], paid: '0.01 U' })
+  assert.match(c, /<b>Market size<\/b>\n• Total crypto market cap: <b>2\.88 T<\/b>/)
+  assert.match(ui.marketCard({ partial: true, paid: '0.01 U' }), /closed the connection/)
+})
+
+test('macro card from the real paid calendar: headline, high-impact events, Fed, US-stock takeaway, tx link', async () => {
+  const { digest } = await import('../agent/macro.mjs')
+  const { readFileSync } = await import('node:fs')
+  const raw = JSON.parse(readFileSync(new URL('../agent/test/fixtures/macro-calendar.json', import.meta.url), 'utf8'))
+  const c = ui.macroCard({ ...digest(raw), paid: '0.1 USD1', tx: '0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a' })
+  assert.match(c, /🗓 <b>Macro week of 2026-09-21<\/b>/)
+  assert.match(c, /🔴 Wednesday · SNB Rate Decision \(Swiss National Bank\) \(CHF\)/)
+  assert.match(c, /🏦 Fed: next decision <b>2026-10-28<\/b> · rate 3\.875%/)
+  assert.match(c, /no high-impact US releases this week/)
+  assert.match(c, /bscscan\.com\/tx\/0xe21fbbfe/)
+  assert.ok(!/[{}]|object Object/.test(c))
+  const hot = ui.macroCard({ week: 'w', events: [{ day: 'Wednesday', event: 'US CPI', currency: 'USD', impact: 'high' }], paid: '0.1 USD1' })
+  assert.match(hot, /1 high-impact US release this week\. Expect bigger swings around Wednesday/)
+})
+
+test('x402 merchant rejections read as "nothing was charged" with the provider reason', () => {
+  const settle = ui.problem('macropulse.theaslangroupllc.com rejected the paid request (USD1 via eip3009): 402 {"error":"settlement_failed","reason":"invalid_transaction_state"}')
+  assert.match(settle, /Payment didn't go through, nothing was charged[\s\S]*settlement_failed \(invalid_transaction_state\)/)
+  const rej = ui.problem('stock-agent.bnbchain.org rejected the paid request (U via eip3009): 402 {"errorCode": "payment_rejected"} {"success":false}')
+  assert.match(rej, /nothing was charged[\s\S]*payment_rejected/)
+  assert.match(ui.problem('swap rejected: boom'), /Something went wrong/)
 })

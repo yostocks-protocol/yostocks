@@ -55,6 +55,10 @@ job id + token saved to disk before anything else → the bot polls in the backg
 the full report as a file. It never signs twice (503 `settlement_pending` replays the same proof, 429 doesn't
 re-sign), and a failed-but-retryable job is resumed for free.
 
+`/market` buys a global crypto snapshot (market cap, 24h volume/change, BTC/ETH dominance) from
+**CoinMarketCap's MCP server** for $0.01 over the same x402 flow (U via EIP-3009 preferred). This one settles today;
+the Stock Analyze Agent currently answers `payment_rejected` to every proof (#29, see DX_LOG).
+
 ## Telegram bot
 
 ```sh

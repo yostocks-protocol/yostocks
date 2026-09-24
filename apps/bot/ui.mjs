@@ -13,6 +13,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /buy NVDA 10 · buy from the safest, cheapest route
 /sell NVDA · sell what you hold (or /sell NVDA 0.01)
 /analyze NVDA · research report from BNB Agent Studio, paid via x402
+/macro · this week's CPI / jobs / Fed calendar, paid via x402
 
 <b>Autopilot</b>
 /strategy buy $10 of NVDA every Monday, skip earnings
@@ -25,6 +26,7 @@ export const COMMANDS = [
   { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
   { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
   { command: 'analyze', description: 'Research report by BNB Agent Studio, paid via x402 · /analyze NVDA' },
+  { command: 'macro', description: "This week's CPI / jobs / Fed calendar, paid via x402" },
   { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
   { command: 'strategies', description: 'Your saved strategies' },
   { command: 'stop', description: 'Remove a strategy · /stop <id>' },
@@ -38,6 +40,7 @@ export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain,
 You're in <b>demo mode</b>: try it on live mainnet data.
 /quote NVDA 10 · compare Ondo, xStocks and bStocks against the real stock price
 /analyze NVDA · see the x402 research offer from BNB Agent Studio
+/macro · see the x402 macro-calendar offer
 
 Buying, selling and strategies run on the owner's wallet only.`
 export const ownerOnly = '🔒 Trading runs on the owner\'s wallet only. In demo mode try /quote NVDA 10 or /analyze NVDA.'
@@ -123,6 +126,9 @@ export const stillPending = (orderId) => `⏳ <b>Still confirming.</b>\nThe orde
 
 export function problem(message) {
   if (/auth signin|SESSION_EXPIRED|NOT_LOGGED_IN/.test(message)) return '🔐 <b>Wallet session expired.</b>\nSign in again: <code>baw auth signin</code>'
+  // x402 merchant said no before settling: the signed authorization was never executed, so no funds moved.
+  const x402 = /rejected the paid request.*?(payment_rejected|settlement_failed)"?(?:,\s*"reason":\s*"([a-z_]+)")?/.exec(message)
+  if (x402) return `⚠️ <b>Payment didn't go through, nothing was charged.</b>\nThe provider said: <code>${esc(x402[1])}${x402[2] ? ` (${esc(x402[2])})` : ''}</code>. You can try again.`
   return `⚠️ <b>Something went wrong</b>\n<code>${esc(message)}</code>`
 }
 
@@ -136,6 +142,7 @@ export const analysisOffer = (ticker, q, company) => [
   `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet${q.approve ? ' (first time: one gas-free approval)' : ''}.`,
   '<i>Ready in 2–5 minutes. Confirm within 60 seconds.</i>',
 ].join('\n')
+export const analystPaused = '⏸ <b>Payments to this agent are paused.</b> It currently rejects every x402 payment (<code>payment_rejected</code>) from Agentic Wallets; we\'ve reported it to BNB Chain. Try /market meanwhile.'
 export const payButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `pay:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 export const analysisPaid = (job) => `✅ <b>Paid ${esc(job.paid)}</b> over x402${job.txHash ? ` · <a href="https://bscscan.com/tx/${esc(job.txHash)}">tx ↗</a>` : ''}\n🧠 Analysing ${esc(job.ticker)}… I'll send the report here in 2–5 minutes.`
 export function analysisReport(ticker, sum, company) {
@@ -144,6 +151,74 @@ export function analysisReport(ticker, sum, company) {
   if (sum.target) lines.push(`<b>Target price:</b> ${esc(sum.target.replace(/^.*?target\s*price\s*:?\s*/i, ''))}`)
   if (sum.risks.length) lines.push('', '<b>Key risks</b>', ...sum.risks.map((r) => `• ${esc(r.slice(0, 160))}`))
   lines.push('', '<i>Full report attached. Third-party analysis, not financial advice.</i>')
+  return lines.join('\n')
+}
+
+// ---- market snapshot (CoinMarketCap MCP, paid over x402) ----
+const big = (n) => (n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : usd(n))
+export const marketOffer = (q) => [
+  '🌍 <b>Crypto market snapshot</b> · CoinMarketCap',
+  'Total market cap, 24h volume and change, BTC / ETH dominance: context before you trade.',
+  '',
+  `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet.`,
+  '<i>Confirm within 60 seconds.</i>',
+].join('\n')
+export const marketButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `mkt:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+const MOOD = [
+  [24, '😱', 'Extreme fear: others are selling hard; prices are often cheap, but falling knives are real.'],
+  [44, '😟', 'Fear: the crowd is cautious. Buying in small steps is usually safer than all at once.'],
+  [55, '😐', 'Neutral: no strong crowd bias either way.'],
+  [75, '😊', 'Greed: risk appetite is high. Avoid chasing; a fixed-size, scheduled buy beats FOMO.'],
+  [100, '🤑', 'Extreme greed: the crowd is all-in. Pullbacks are more likely from here.'],
+]
+const chg = (n) => (n == null ? '' : ` (${pct(n)})`)
+
+export function marketCard(r) {
+  const x = r.snapshot
+  const lines = ['🌍 <b>Crypto market now</b> · CoinMarketCap', '']
+  if (x) {
+    const mood = x.fearGreed && MOOD.find(([max]) => x.fearGreed.index <= max)
+    if (x.fearGreed) lines.push(`${mood[1]} Sentiment: <b>${esc(x.fearGreed.label)}</b> (${x.fearGreed.index}/100)${x.fearGreed.lastWeek != null ? ` · last week ${x.fearGreed.lastWeek}` : ''}`)
+    if (x.marketCap) lines.push(`💰 Market cap: <b>${esc(x.marketCap.value)}</b>${x.marketCap.d24 != null ? ` · ${pct(x.marketCap.d24)} today` : ''}${x.marketCap.d7 != null ? `, ${pct(x.marketCap.d7)} this week` : ''}`)
+    if (x.volume24h) lines.push(`📊 24h volume: <b>${esc(x.volume24h.value)}</b>${chg(x.volume24h.d24)}`)
+    if (x.btcDominance != null) lines.push(`₿ BTC dominance: <b>${x.btcDominance.toFixed(1)}%</b>${x.ethDominance != null ? ` · ETH ${x.ethDominance.toFixed(1)}%` : ''}`)
+    if (x.altSeason) lines.push(`🔄 Altcoin season: <b>${x.altSeason.index}/100</b>${x.altSeason.yesterday != null ? ` (yesterday ${x.altSeason.yesterday})` : ''}`)
+    if (x.openInterest) lines.push(`📈 Open interest: <b>${esc(x.openInterest.value)}</b>${chg(x.openInterest.d24)}`)
+    if (mood) lines.push('', `<b>What it means:</b> ${esc(mood[2])}`)
+    if (x.updated) lines.push('', `<i>Updated ${esc(x.updated)}</i>`)
+  } else if (r.sections?.length) {
+    for (const sec of r.sections) {
+      lines.push(`<b>${esc(sec.title)}</b>`, ...sec.items.map((it) => `• ${esc(it.label)}: <b>${esc(it.current)}</b>${it.change24h ? ` (${esc(it.change24h)} 24h)` : ''}`), '')
+    }
+    lines.pop()
+  } else {
+    lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : '<i>The provider returned data in a format I could not read.</i>')
+  }
+  lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.flowId ? ` · <code>${esc(r.flowId.slice(0, 8))}</code>` : ''}`)
+  return lines.join('\n')
+}
+
+// ---- macro calendar (macropulse via Bazaar, paid over x402) ----
+const IMPACT = { high: '🔴', medium: '🟠', low: '⚪' }
+export const macroOffer = (q) => [
+  '🗓 <b>This week\'s market-moving events</b>',
+  'CPI, jobs, GDP and central-bank decisions: the calendar that moves US stocks, before you buy them.',
+  '',
+  `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet (Bazaar merchant).`,
+  '<i>Confirm within 60 seconds.</i>',
+].join('\n')
+export const macroButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `mac:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+export function macroCard(r) {
+  const lines = [`🗓 <b>Macro week${r.week ? ` of ${esc(r.week)}` : ''}</b>`, '']
+  if (r.headline) lines.push(`<i>${esc(r.headline)}</i>`, '')
+  for (const e of r.events) lines.push(`${IMPACT[e.impact] ?? '⚪'} ${esc(e.day ?? e.date)}${e.time ? ` ${esc(e.time)} UTC` : ''} · ${esc(e.event)}${e.currency && e.currency !== 'Multi' ? ` (${esc(e.currency)})` : ''}`)
+  if (r.fed) lines.push('', `🏦 Fed: next decision <b>${esc(r.fed.next)}</b>${r.fed.rate && r.fed.rate !== 'Unknown' ? ` · rate ${esc(r.fed.rate)}` : ''}`)
+  const usHigh = r.events.filter((e) => e.currency === 'USD' && e.impact === 'high')
+  lines.push('', usHigh.length
+    ? `<b>For US stocks:</b> ${usHigh.length} high-impact US release${usHigh.length > 1 ? 's' : ''} this week. Expect bigger swings around ${esc(usHigh[0].day)}; buying in smaller steps is safer.`
+    : '<b>For US stocks:</b> no high-impact US releases this week; macro risk is low for scheduled buys.')
+  if (r.partial) lines.push('<i>Paid, but the calendar came back unreadable.</i>')
+  lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.tx ? ` · <a href="https://bscscan.com/tx/${esc(r.tx)}">tx ↗</a>` : ''}`)
   return lines.join('\n')
 }
 

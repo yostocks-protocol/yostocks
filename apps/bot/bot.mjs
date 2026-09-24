@@ -6,6 +6,8 @@ import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
 import * as analyst from '../agent/analyst.mjs'
+import * as cmc from '../agent/cmc.mjs'
+import * as macro from '../agent/macro.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
@@ -113,12 +115,26 @@ export async function onMessage(msg) {
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
+  if (name === '/macro') {
+    const id = Math.random().toString(36).slice(2, 10)
+    const offer = { ...macro.lastPrice }
+    pending.set(id, { macro: offer, at: Date.now() })
+    return card(chat, ui.macroOffer(offer), { reply_markup: ui.macroButtons(id, offer) })
+  }
+  if (name === '/market') {
+    const id = Math.random().toString(36).slice(2, 10)
+    const offer = { ...cmc.lastPrice }
+    pending.set(id, { market: offer, at: Date.now() })
+    return card(chat, ui.marketOffer(offer), { reply_markup: ui.marketButtons(id, offer) })
+  }
   if (name === '/analyze') {
     const ticker = rest[0]?.toUpperCase()
     if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
     // Offer right away at the last known price; the slow (~16s) 402 challenge runs only after Pay.
     const m = await stockMetaByTicker(ticker)
     const offer = { ticker, ...analyst.lastPrice }
+    // The Stock Analyze Agent rejects every proof right now (#29); don't offer a button that can only fail.
+    if (process.env.YO_ANALYST_PAY !== '1') return card(chat, `${ui.analysisOffer(ticker, offer, m?.company)}\n\n${ui.analystPaused}`, { photo: m?.photo ?? brand.logo })
     const id = Math.random().toString(36).slice(2, 10)
     pending.set(id, { analyze: offer, at: Date.now() })
     return card(chat, ui.analysisOffer(ticker, offer, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, offer) })
@@ -158,6 +174,8 @@ const lastPublic = new Map() // chat → last quote time; ponytail: in-memory, f
 async function onPublic(chat, text = '') {
   const [head, arg] = text.trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
+  if (name === '/market') return card(chat, `${ui.marketOffer(cmc.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
+  if (name === '/macro') return card(chat, `${ui.macroOffer(macro.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   if (!['/quote', '/analyze'].includes(name)) return ['/buy', '/sell', '/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.PUBLIC_HELP)
   if (Date.now() - (lastPublic.get(chat) ?? 0) < PUBLIC_GAP_MS) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
   lastPublic.set(chat, Date.now())
@@ -197,6 +215,18 @@ export async function onCallback(q) {
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
     return say(chat, ui.strategySaved(id, describe(p.rule)))
+  }
+  if (action === 'mac' && p.macro) {
+    if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /macro again.'))
+    const q = await macro.quote()
+    if (Number(q.amount) > Number(p.macro.amount)) return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /macro again.`))
+    return card(chat, ui.macroCard(await macro.buy(q)))
+  }
+  if (action === 'mkt' && p.market) {
+    if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /market again.'))
+    const q = await cmc.quote()
+    if (Number(q.amount) > Number(p.market.amount)) return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /market again.`))
+    return card(chat, ui.marketCard(await cmc.buy(q)))
   }
   if (action === 'pay' && p.analyze) {
     if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /analyze again.'))

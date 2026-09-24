@@ -73,3 +73,42 @@ export function fakeAnalyst(state = {}) {
   }
   return { handler, seen, state }
 }
+
+/** A fake CoinMarketCap MCP x402 endpoint on cmc.test. state.mode: 'json' | 'sse' | 'cut' (close after payment) | 'reject'. */
+export function fakeCmc(state = {}) {
+  const seen = []
+  const metrics = JSON.parse(readFileSync(new URL('./fixtures/cmc-global.json', import.meta.url), 'utf8')) // real payload, recorded 2026-09-24
+  const rpc = { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: JSON.stringify(metrics) }] } }
+  const handler = async (u, init) => {
+    const headers = Object.fromEntries(new Headers(init.headers ?? {}))
+    seen.push({ headers, body: init.body })
+    if (!headers['payment-signature']) return new Response('{"error":"Provide PAYMENT-SIGNATURE"}', { status: 402, headers: { 'payment-required': Buffer.from('{"x402Version":2}').toString('base64') } })
+    const pr = Buffer.from(JSON.stringify({ x402Version: 2, x402FlowId: '792cd109-29ce-441c-bf98-4bd3456d1b06', status: 'settled' })).toString('base64')
+    if (state.mode === 'reject') return new Response('{"error":"payment_rejected"}', { status: 402 })
+    if (state.mode === 'cut') {
+      const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode('event: message\ndata: {"jsonrpc"')); c.error(new TypeError('terminated')) } })
+      return new Response(body, { status: 200, headers: { 'payment-response': pr } })
+    }
+    const text = state.mode === 'sse' ? `event: message\ndata: ${JSON.stringify(rpc)}\n\n` : JSON.stringify(rpc)
+    return new Response(text, { status: 200, headers: { 'payment-response': pr } })
+  }
+  return { handler, seen, state }
+}
+
+/** A fake macropulse calendar (x402, multi-network challenge like the real one) on macro.test. */
+export function fakeMacro(state = {}) {
+  const seen = []
+  const challenge = Buffer.from(JSON.stringify({ x402Version: 2, accepts: [
+    { scheme: 'exact', network: 'eip155:8453', amount: '100000', asset: '0x8335' },
+    { scheme: 'exact', network: 'xrpl:0', amount: '0.1', asset: 'XRP' },
+    { scheme: 'exact', network: 'eip155:56', amount: '100000000000000000', asset: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', extra: { assetTransferMethod: 'eip3009' } },
+  ] })).toString('base64')
+  const handler = async (u, init) => {
+    const headers = Object.fromEntries(new Headers(init.headers ?? {}))
+    seen.push({ headers })
+    if (!headers['payment-signature']) return new Response('{"error":"X-PAYMENT header is required"}', { status: 402, headers: { 'payment-required': challenge } })
+    const body = readFileSync(new URL('./fixtures/macro-calendar.json', import.meta.url), 'utf8')
+    return new Response(body, { status: 200, headers: { 'payment-response': Buffer.from(JSON.stringify({ success: true, transaction: '0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a' })).toString('base64') } })
+  }
+  return { handler, seen, state }
+}

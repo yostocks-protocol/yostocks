@@ -55,7 +55,7 @@ test('settlement_pending (503) replays the same proof; never a second signature'
 test('rate limited (429) → error with Retry-After, no re-sign', async () => {
   fa.state.submit = [429]
   const n = signs().length
-  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /rate limit, retry after 120s \(not re-signing\)/)
+  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /rate limited, retry after 120s \(not re-signing\)/)
   assert.equal(signs().length, n + 1)
 })
 
@@ -92,7 +92,7 @@ test('permit2 approve that failed on-chain stops before the paid replay', async 
 
 test('a rejected payment says which token/method was used and keeps the facilitator detail', async () => {
   fa.state.submit = [402]
-  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /analyst rejected the paid request \(USDT via [^)]*\): 402/)
+  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /analyst\.test rejected the paid request \((U|USDT) via [^)]*\): 402/)
 })
 
 test('prefers an EIP-3009 option (U) over a permit2 one (USDT) when both are ready', async () => {
