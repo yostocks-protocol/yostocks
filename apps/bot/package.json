@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=../../.env bot.mjs",
-    "test": "node --test bot.test.mjs bot.flow.test.mjs strategy.test.mjs",
+    "test": "node --test bot.test.mjs bot.flow.test.mjs strategy.test.mjs runner.test.mjs",
     "test:live": "node --env-file-if-exists=../../.env --test strategy.live.mjs"
   },
   "engines": {
