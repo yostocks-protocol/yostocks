@@ -67,3 +67,13 @@ test("a stranger sees the x402 offer but gets no Pay button and nothing is signe
   assert.equal(sent[0].reply_markup, undefined)
   assert.equal(signs().length, n)
 })
+
+test('offer shows instantly; if the live price is higher at Pay time, nothing is signed', async () => {
+  await onMessage({ chat: { id: OWNER }, text: '/analyze NVDA' })
+  assert.equal(fa.seen.length, 0, 'no slow 402 round trip before Pay')
+  sc.set({ x402Preview: { success: true, data: { paymentId: 'p2', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USDT', amount: '0.5' }] } } })
+  const n = signs().length
+  await tap(sent[0].reply_markup.inline_keyboard[0][0].callback_data)
+  assert.equal(signs().length, n)
+  assert.match(texts().at(-1), /price is now 0\.5 USDT\. Nothing was paid/)
+})

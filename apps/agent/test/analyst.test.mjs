@@ -89,3 +89,8 @@ test('permit2 approve that failed on-chain stops before the paid replay', async 
   await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /approve 0xbad failed on-chain/)
   assert.equal(replays(), n)
 })
+
+test('a rejected payment says which token/method was used and keeps the facilitator detail', async () => {
+  fa.state.submit = [402]
+  await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /analyst rejected the paid request \(USDT via [^)]*\): 402/)
+})
