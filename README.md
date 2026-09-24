@@ -65,7 +65,8 @@ npm start -w apps/bot    # message the bot once, it replies with your chat id
 
 `/quote NVDA 10` shows the guarded comparison. `/sell NVDA` (or `/sell NVDA 0.01`) sells the NVDA token you
 hold for USDT, with the same guard on the sell price. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
-Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet.
+Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet. Everyone else gets a **read-only demo mode**: `/quote` on live
+mainnet data and the `/analyze` offer (no Pay button), rate-limited to one quote per 10 s per chat.
 
 `/strategy buy $10 of NVDA every Monday 9pm, skip earnings, max 0.5% premium` → an OpenAI model (`gpt-4o-mini` by default,
 `YO_LLM_MODEL` to change; strict JSON-schema output) turns it into a fixed rule, shown back in plain words with a Save button. Fixed code enforces the bounds

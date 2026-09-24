@@ -36,11 +36,28 @@ const swaps = () => sc.calls().filter((c) => c[1] === 'swap')
 const tap = (data, chat = OWNER) => onCallback({ id: 'cb', data, message: { chat: { id: chat }, message_id: 1 } })
 const buttonData = () => sent.find((s) => s.reply_markup)?.reply_markup.inline_keyboard[0].map((b) => b.callback_data)
 
-test('stranger gets their chat id and nothing else; wallet untouched', async () => {
+test('stranger: /buy, /sell and strategies are owner-only; wallet untouched', async () => {
   const n = sc.calls().length
-  await onMessage(msg('/buy NVDA 10', 7))
-  assert.match(texts()[0], /yostocks is private\.<\/b>\nYour chat id is <code>7<\/code>/)
+  for (const t of ['/buy NVDA 10', '/sell NVDA', '/strategy buy NVDA daily', '/stop x']) await onMessage(msg(t, 7))
+  assert.ok(texts().every((t) => /owner's wallet only/.test(t)))
   assert.equal(sc.calls().length, n)
+})
+
+test('stranger (demo mode): /start shows demo help, /quote works on live data without buttons, then rate-limits', async (t) => {
+  sc.set({ quotes: goodNvda(10) })
+  const swapsBefore = swaps().length
+  await onMessage(msg('/start', 8))
+  assert.match(texts()[0], /demo mode/)
+  await onMessage(msg('/quote NVDA 10', 8))
+  assert.match(texts()[1], /⭐ <b>bStocks · NVDAB<\/b>/)
+  assert.equal(sent[1].reply_markup, undefined, 'no trade buttons for strangers')
+  assert.equal(swaps().length, swapsBefore)
+  await onMessage(msg('/quote NVDA 10', 8))
+  assert.match(texts()[2], /One quote every 10 seconds/)
+  const now = Date.now()
+  t.mock.method(Date, 'now', () => now + 11_000)
+  await onMessage(msg('/quote NVDA 10', 8))
+  assert.match(texts()[3], /⭐ <b>bStocks · NVDAB<\/b>/)
 })
 
 test('owner /start gets help; bad input gets usage', async () => {

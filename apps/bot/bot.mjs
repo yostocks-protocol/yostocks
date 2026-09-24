@@ -109,17 +109,19 @@ const pending = new Map()
 
 export async function onMessage(msg) {
   const chat = msg.chat.id
-  if (String(chat) !== OWNER) return say(chat, ui.privateBot(chat))
+  if (String(chat) !== OWNER) return onPublic(chat, msg.text)
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
   if (name === '/analyze') {
     const ticker = rest[0]?.toUpperCase()
     if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
-    const [q, m] = await Promise.all([analyst.quote(ticker), stockMetaByTicker(ticker)])
+    // Offer right away at the last known price; the slow (~16s) 402 challenge runs only after Pay.
+    const m = await stockMetaByTicker(ticker)
+    const offer = { ticker, ...analyst.lastPrice }
     const id = Math.random().toString(36).slice(2, 10)
-    pending.set(id, { analyze: q, at: Date.now() })
-    return card(chat, ui.analysisOffer(ticker, q, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, q) })
+    pending.set(id, { analyze: offer, at: Date.now() })
+    return card(chat, ui.analysisOffer(ticker, offer, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, offer) })
   }
   if (name === '/strategies') return say(chat, ui.strategyList(store.load().map((s) => ({ id: s.id, description: describe(s.rule) }))))
   if (name === '/stop') {
@@ -149,6 +151,29 @@ export async function onMessage(msg) {
   await card(chat, ui.quoteCard(s, { ask: true, company: m?.company }), { photo, reply_markup: ui.buttons(id, p.usdt, s.best.t.symbol) })
 }
 
+export const PUBLIC_GAP_MS = 10_000
+const lastPublic = new Map() // chat → last quote time; ponytail: in-memory, fine for a demo bot
+
+/** Demo mode for everyone but the owner: live read-only quotes, never the wallet's money. */
+async function onPublic(chat, text = '') {
+  const [head, arg] = text.trim().split(/\s+/)
+  const name = head?.replace(/@.*$/, '').toLowerCase()
+  if (!['/quote', '/analyze'].includes(name)) return ['/buy', '/sell', '/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.PUBLIC_HELP)
+  if (Date.now() - (lastPublic.get(chat) ?? 0) < PUBLIC_GAP_MS) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+  lastPublic.set(chat, Date.now())
+  if (name === '/analyze') {
+    const ticker = arg?.toUpperCase()
+    if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
+    const m = await stockMetaByTicker(ticker)
+    return card(chat, `${ui.analysisOffer(ticker, analyst.lastPrice, m?.company)}\n\n${ui.ownerOnly}`, { photo: m?.photo ?? brand.logo }) // no Pay button
+  }
+  const p = parse(text)
+  if (p.error) return say(chat, ui.notice(p.error))
+  const s = await scan(p.ticker, p.usdt)
+  const m = await stockMeta((s.best ?? s.rows[0]).t)
+  return card(chat, ui.quoteCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
+}
+
 async function onStrategy(chat, text) {
   if (!text) return say(chat, ui.notice('usage: /strategy buy $10 of NVDA every Monday 9pm, skip earnings weeks'))
   const rule = await parseStrategy(text)
@@ -175,7 +200,12 @@ export async function onCallback(q) {
   }
   if (action === 'pay' && p.analyze) {
     if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /analyze again.'))
-    const job = await analyst.pay(p.analyze)
+    await say(chat, ui.notice('Preparing the x402 payment… the analyst takes ~15 seconds to answer.'))
+    const q = await analyst.quote(p.analyze.ticker)
+    if (Number(q.amount) > Number(p.analyze.amount)) { // any USD stable is fine (U/USD1/USDT); only the amount matters
+      return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /analyze again.`))
+    }
+    const job = await analyst.pay(q)
     await say(chat, ui.analysisPaid(job))
     watchJob(chat, job).catch((e) => say(chat, ui.problem(e.message)).catch(() => {}))
     return job
