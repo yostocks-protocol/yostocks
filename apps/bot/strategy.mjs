@@ -4,7 +4,7 @@ import OpenAI from 'openai'
 import { zodTextFormat } from 'openai/helpers/zod'
 import { z } from 'zod'
 
-const MODEL = process.env.YO_LLM_MODEL ?? 'gpt-5.4-mini'
+const MODEL = process.env.YO_LLM_MODEL ?? 'gpt-4o-mini'
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 export const MAX_USDT = 1000
@@ -33,7 +33,6 @@ export async function parseStrategy(text) {
     model: MODEL,
     instructions: SYSTEM,
     input: text,
-    reasoning: { effort: 'low' },
     text: { format: zodTextFormat(Rule, 'strategy_rule') },
   })
   const refusal = res.output?.flatMap((o) => o.content ?? []).find((c) => c.type === 'refusal')

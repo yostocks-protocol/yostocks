@@ -39,8 +39,8 @@ test('parseStrategy calls OpenAI with a strict JSON schema and returns the parse
   let req
   deps.client = { responses: { parse: async (r) => { req = r; return reply({ output_parsed: rule() }) } } }
   assert.deepEqual(await parseStrategy('buy $10 NVDA every monday 9pm WIB skip earnings'), rule())
-  assert.equal(req.model, process.env.YO_LLM_MODEL ?? 'gpt-5.4-mini')
-  assert.equal(req.reasoning.effort, 'low')
+  assert.equal(req.model, process.env.YO_LLM_MODEL ?? 'gpt-4o-mini')
+  assert.equal(req.reasoning, undefined) // gpt-4o-mini is not a reasoning model; the param would 400
   assert.equal(req.text.format.type, 'json_schema')
   assert.equal(req.text.format.strict, true)
   assert.match(req.instructions, /WIB = UTC\+7/)
