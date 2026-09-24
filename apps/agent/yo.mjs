@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // yostocks agent: quote a tokenized stock across Ondo / xStocks / bStocks on BSC,
-// reject quotes that disagree with the reference price.
+// reject quotes that disagree with the reference price, buy from the best one via Agentic Wallet.
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { realpathSync } from 'node:fs'
+import { createInterface } from 'node:readline/promises'
 
 const run = promisify(execFile)
 const BAW = process.env.BAW || 'baw'
 const MAX_DEV = Number(process.env.YO_MAX_DEV ?? 1) // % a quote may differ from the reference price
+const SLIPPAGE = process.env.YO_SLIPPAGE ?? '1' // %
 const USDT = '0x55d398326f99059fF775485246999027B3197955'
 const API = 'https://www.binance.com/bapi/defi'
 const HEADERS = { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' }
@@ -82,13 +84,38 @@ function print({ ticker, usdt, ref, rows, best }) {
   console.log(best ? `\nbest: ${best.t.symbol} → ${best.got.toFixed(6)} tokens` : '\nno safe route, not trading')
 }
 
+async function buy(ticker, usdt, yes) {
+  const s = await scan(ticker, usdt)
+  print(s)
+  if (!s.best) return process.exit(2)
+  if (!yes) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout })
+    const a = await rl.question(`\nswap ${usdt} USDT → ${s.best.t.symbol} (slippage ${SLIPPAGE}%)? [y/N] `)
+    rl.close()
+    if (a.trim().toLowerCase() !== 'y') return console.log('cancelled')
+  }
+  const sub = await baw('market-order', 'swap', '--fromTokenQty', String(usdt), '--fromToken', USDT, '--toToken', s.best.t.contractAddress, '--binanceChainId', '56', '--slippage', SLIPPAGE)
+  if (!sub.success) throw new Error(`swap rejected: ${JSON.stringify(sub.error)}`)
+  const { orderId } = sub.data
+  console.log(`submitted order ${orderId}, confirming…`)
+  // An orderId is not a fill: poll until FINISHED / FAILED.
+  for (let i = 0; i < 30; i++) {
+    await new Promise((r) => setTimeout(r, 3000))
+    const o = (await baw('market-order', 'list', '--orderId', orderId)).data?.list?.[0]
+    if (o?.status === 'FINISHED') return console.log(`✓ filled · tx https://bscscan.com/tx/${o.txHash}`)
+    if (o?.status === 'FAILED') throw new Error(`order ${orderId} FAILED${o.txHash ? ` tx ${o.txHash}` : ''}`)
+  }
+  console.log(`still PENDING after 90s, check: baw market-order list --orderId ${orderId}`)
+}
+
 if (process.argv[1] && realpathSync(process.argv[1]) === import.meta.filename) {
   const [cmd, ticker, amount] = process.argv.slice(2)
   const usdt = Number(amount)
-  if (cmd !== 'quote' || !ticker || !(usdt > 0)) {
-    console.log('usage: yo quote <TICKER> <USDT amount>')
+  if (!['quote', 'buy'].includes(cmd) || !ticker || !(usdt > 0)) {
+    console.log('usage: yo quote|buy <TICKER> <USDT amount> [--yes]')
     process.exit(1)
   }
   const T = ticker.toUpperCase()
-  scan(T, usdt).then(print).catch((e) => { console.error(`✗ ${e.message}`); process.exit(1) })
+  const job = cmd === 'quote' ? scan(T, usdt).then(print) : buy(T, usdt, process.argv.includes('--yes'))
+  job.catch((e) => { console.error(`✗ ${e.message}`); process.exit(1) })
 }
