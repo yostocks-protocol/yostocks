@@ -122,7 +122,7 @@ test('execute: swaps USDT → chosen token with explicit slippage, polls to FINI
   const n = sc.calls().length
   let submitted
   const r = await execute({ contractAddress: addr('NVDAB') }, 5, (id) => { submitted = id })
-  assert.deepEqual(r, { orderId: 'o-42', status: 'FINISHED', tx: 'https://bscscan.com/tx/0xabc' })
+  assert.deepEqual(r, { orderId: 'o-42', status: 'FINISHED', tx: 'https://bscscan.com/tx/0xabc', got: undefined })
   assert.equal(submitted, 'o-42')
   const swap = sc.calls().slice(n).find((c) => c[1] === 'swap')
   const a = (k) => swap[swap.indexOf(k) + 1]
@@ -147,4 +147,25 @@ test('recorded live quotes (if the recorder was signed in) still pass the guard'
   if (!live) return t.skip('fixtures recorded without a wallet session')
   sc.set({ quotes: FIXTURE.quotes })
   for (const tk of ['NVDA', 'MSTR', 'META']) assert.ok((await scan(tk, 100)).best, `${tk} should have a safe route`)
+})
+
+test('execute: swap orderId unknown to `list` (#21, first mainnet buy) → matched by token + amount + time', async () => {
+  const USDT = '0x55d398326f99059fF775485246999027B3197955'
+  const real = { orderId: '26092400001912775002', status: 'FINISHED', fromToken: USDT, fromTokenQty: '5.000000000000000000', toToken: addr('NVDAB'), toTokenActualQty: '0.022409841731513969', txHash: '0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9' }
+  const other = { ...real, orderId: 'x', fromTokenQty: '7', txHash: '0xother' } // same token, different size: not ours
+  sc.set({ swap: { success: true, data: { orderId: '2609240001912775001' } }, idLookupBroken: true, recent: [other, real] })
+  const n = sc.calls().length
+  const r = await execute({ contractAddress: addr('NVDAB') }, 5)
+  assert.equal(r.status, 'FINISHED')
+  assert.equal(r.orderId, '26092400001912775002')
+  assert.equal(r.tx, 'https://bscscan.com/tx/0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9')
+  assert.equal(r.got, '0.022409841731513969')
+  const fallback = sc.calls().slice(n).find((c) => c[1] === 'list' && c.includes('--toToken'))
+  assert.equal(fallback[fallback.indexOf('--toToken') + 1], addr('NVDAB'))
+  assert.ok(Number(fallback[fallback.indexOf('--startTime') + 1]) > Date.now() - 5 * 60_000)
+})
+
+test('execute: id lookup broken and no matching order yet → PENDING, not a fake fill', async () => {
+  sc.set({ swap: { success: true, data: { orderId: 'ghost' } }, idLookupBroken: true, recent: [] })
+  assert.equal((await execute({ contractAddress: addr('NVDAB') }, 5)).status, 'PENDING')
 })

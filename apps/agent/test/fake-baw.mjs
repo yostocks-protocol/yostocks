@@ -13,6 +13,7 @@ let out
 if (f.auth) out = { success: false, error: { code: 10003000, name: f.auth, message: 'Not logged in' } }
 else if (args[1] === 'quote') out = f.quotes?.[arg('--toToken').toLowerCase()] ?? NO_LIQ
 else if (args[1] === 'swap') out = f.swap ?? { success: true, data: { orderId: 'o-1' } }
-else if (args[1] === 'list') out = { success: true, data: { list: [{ orderId: arg('--orderId'), status: f.orderStatus ?? 'FINISHED', txHash: f.txHash ?? null }] } }
+else if (args[1] === 'list' && args.includes('--orderId')) out = { success: true, data: { list: f.idLookupBroken ? [] : [{ orderId: arg('--orderId'), status: f.orderStatus ?? 'FINISHED', txHash: f.txHash ?? null }] } }
+else if (args[1] === 'list') out = { success: true, data: { list: f.recent ?? [] } } // filtered list (by toToken / startTime)
 process.stdout.write(JSON.stringify(out))
 process.exit(out.success ? 0 : 1)
