@@ -21,6 +21,12 @@ MSTR · 100 USDT · reference $158.82/share
 best: MSTRB → 0.628311 tokens
 ```
 
+## Mainnet proof
+
+First live buy through the Telegram bot on BSC mainnet (2026-09-24 19:48 WIB): `/buy NVDA 5` → guard picked
+bStocks (NVDAB −0.12% vs Ondo +0.32%, xStocks no liquidity) → 5 USDT → 0.022409841731513969 NVDAB,
+tx [`0xfe3a3f…04b9`](https://bscscan.com/tx/0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9).
+
 ## Run
 
 Requires Node ≥ 22 and the Binance Agentic Wallet CLI.
