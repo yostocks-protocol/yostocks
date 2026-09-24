@@ -30,7 +30,7 @@ export async function buy(ch) {
     mkdirSync(new URL('./data/', import.meta.url), { recursive: true })
     writeFileSync(new URL('./data/cmc-last.json', import.meta.url), JSON.stringify({ at: new Date().toISOString(), settlement, raw }, null, 1))
   } catch {}
-  return { metrics: metrics(raw), sections: sections(raw), raw, flowId: settlement?.x402FlowId ?? null, paid: `${Number(ch.amount)} ${ch.token}`, partial: raw == null }
+  return { metrics: metrics(raw), snapshot: snapshot(raw), sections: sections(raw), raw, flowId: settlement?.x402FlowId ?? null, paid: `${Number(ch.amount)} ${ch.token}`, partial: raw == null }
 }
 
 /** MCP tools/call result as plain JSON or SSE `data:` lines → the tool's payload (parsed if it's JSON). */
@@ -81,10 +81,36 @@ export function sections(raw) {
     const items = []
     for (const [k, v] of Object.entries(group)) {
       if (k === 'definition') continue
-      if (v && typeof v === 'object' && 'current' in v) items.push({ label: human(k), current: String(v.current), change24h: v.percent_change?.['24h'] ?? null })
+      if (v && typeof v === 'object' && 'current' in v) {
+        const cur = typeof v.current === 'object' ? [v.current?.value, v.current?.index].filter((x) => x !== '' && x != null).join(' ') : String(v.current)
+        if (cur) items.push({ label: human(k), current: cur, change24h: v.percent_change?.['24h'] ?? null })
+      }
       else if (typeof v === 'string' || typeof v === 'number') items.push({ label: human(k), current: String(v), change24h: null })
     }
     if (items.length) out.push({ title: human(key), items: items.slice(0, 3) })
   }
   return out.slice(0, 5)
+}
+
+const num = (s) => (s == null || s === '' ? null : Number(String(s).replace(/[%+,$\s]/g, '').replace(/[TBMK]$/i, '')))
+const money = (s) => (s ? `$${String(s).replace(/\s+/g, '')}` : null) // "2.88 T" → "$2.88T"
+
+/** The handful of numbers a trader reads first, from CMC's real grouped payload (see test/fixtures/cmc-global.json). */
+export function snapshot(raw) {
+  if (!raw?.market_size && !raw?.sentiment) return null
+  const cap = raw.market_size?.total_crypto_market_cap_usd
+  const vol = raw.liquidity?.volume24h?.total
+  const fg = raw.sentiment?.fear_greed
+  const alt = raw.rotation?.altcoin_season
+  const oi = raw.leverage?.open_interest?.total
+  return {
+    fearGreed: fg?.current ? { index: Number(fg.current.index), label: fg.current.value, lastWeek: fg.history?.last_week?.index ?? null } : null,
+    marketCap: cap ? { value: money(cap.current), d24: num(cap.percent_change?.['24h']), d7: num(cap.percent_change?.['7d']) } : null,
+    volume24h: vol ? { value: money(vol.current), d24: num(vol.percent_change?.['24h']) } : null,
+    btcDominance: num(raw.dominance?.btc?.current),
+    ethDominance: num(raw.dominance?.eth?.current),
+    altSeason: alt?.current ? { index: Number(alt.current.index), yesterday: alt.history?.yesterday?.index ?? null } : null,
+    openInterest: oi ? { value: money(oi.current), d24: num(oi.percent_change?.['24h']) } : null,
+    updated: raw.last_updated ?? null,
+  }
 }

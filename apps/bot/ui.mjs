@@ -139,6 +139,7 @@ export const analysisOffer = (ticker, q, company) => [
   `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet${q.approve ? ' (first time: one gas-free approval)' : ''}.`,
   '<i>Ready in 2–5 minutes. Confirm within 60 seconds.</i>',
 ].join('\n')
+export const analystPaused = '⏸ <b>Payments to this agent are paused.</b> It currently rejects every x402 payment (<code>payment_rejected</code>) from Agentic Wallets; we\'ve reported it to BNB Chain. Try /market meanwhile.'
 export const payButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `pay:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 export const analysisPaid = (job) => `✅ <b>Paid ${esc(job.paid)}</b> over x402${job.txHash ? ` · <a href="https://bscscan.com/tx/${esc(job.txHash)}">tx ↗</a>` : ''}\n🧠 Analysing ${esc(job.ticker)}… I'll send the report here in 2–5 minutes.`
 export function analysisReport(ticker, sum, company) {
@@ -160,22 +161,36 @@ export const marketOffer = (q) => [
   '<i>Confirm within 60 seconds.</i>',
 ].join('\n')
 export const marketButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `mkt:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+const MOOD = [
+  [24, '😱', 'Extreme fear: others are selling hard; prices are often cheap, but falling knives are real.'],
+  [44, '😟', 'Fear: the crowd is cautious. Buying in small steps is usually safer than all at once.'],
+  [55, '😐', 'Neutral: no strong crowd bias either way.'],
+  [75, '😊', 'Greed: risk appetite is high. Avoid chasing; a fixed-size, scheduled buy beats FOMO.'],
+  [100, '🤑', 'Extreme greed: the crowd is all-in. Pullbacks are more likely from here.'],
+]
+const chg = (n) => (n == null ? '' : ` (${pct(n)})`)
+
 export function marketCard(r) {
-  const m = r.metrics ?? {}
+  const x = r.snapshot
   const lines = ['🌍 <b>Crypto market now</b> · CoinMarketCap', '']
-  if (m.marketCap != null) lines.push(`Total market cap: <b>${big(m.marketCap)}</b>${m.marketCapChange24h != null ? ` (${pct(m.marketCapChange24h)} 24h)` : ''}`)
-  if (m.volume24h != null) lines.push(`24h volume: <b>${big(m.volume24h)}</b>`)
-  if (m.btcDominance != null) lines.push(`BTC dominance: <b>${m.btcDominance.toFixed(1)}%</b>${m.ethDominance != null ? ` · ETH ${m.ethDominance.toFixed(1)}%` : ''}`)
-  if (lines.length === 2 && r.sections?.length) {
+  if (x) {
+    const mood = x.fearGreed && MOOD.find(([max]) => x.fearGreed.index <= max)
+    if (x.fearGreed) lines.push(`${mood[1]} Sentiment: <b>${esc(x.fearGreed.label)}</b> (${x.fearGreed.index}/100)${x.fearGreed.lastWeek != null ? ` · last week ${x.fearGreed.lastWeek}` : ''}`)
+    if (x.marketCap) lines.push(`💰 Market cap: <b>${esc(x.marketCap.value)}</b>${x.marketCap.d24 != null ? ` · ${pct(x.marketCap.d24)} today` : ''}${x.marketCap.d7 != null ? `, ${pct(x.marketCap.d7)} this week` : ''}`)
+    if (x.volume24h) lines.push(`📊 24h volume: <b>${esc(x.volume24h.value)}</b>${chg(x.volume24h.d24)}`)
+    if (x.btcDominance != null) lines.push(`₿ BTC dominance: <b>${x.btcDominance.toFixed(1)}%</b>${x.ethDominance != null ? ` · ETH ${x.ethDominance.toFixed(1)}%` : ''}`)
+    if (x.altSeason) lines.push(`🔄 Altcoin season: <b>${x.altSeason.index}/100</b>${x.altSeason.yesterday != null ? ` (yesterday ${x.altSeason.yesterday})` : ''}`)
+    if (x.openInterest) lines.push(`📈 Open interest: <b>${esc(x.openInterest.value)}</b>${chg(x.openInterest.d24)}`)
+    if (mood) lines.push('', `<b>What it means:</b> ${esc(mood[2])}`)
+    if (x.updated) lines.push('', `<i>Updated ${esc(x.updated)}</i>`)
+  } else if (r.sections?.length) {
     for (const sec of r.sections) {
-      lines.push(`<b>${esc(sec.title)}</b>`)
-      for (const it of sec.items) lines.push(`• ${esc(it.label)}: <b>${esc(it.current)}</b>${it.change24h ? ` (${esc(it.change24h)} 24h)` : ''}`)
-      lines.push('')
+      lines.push(`<b>${esc(sec.title)}</b>`, ...sec.items.map((it) => `• ${esc(it.label)}: <b>${esc(it.current)}</b>${it.change24h ? ` (${esc(it.change24h)} 24h)` : ''}`), '')
     }
     lines.pop()
-    if (r.raw?.last_updated) lines.push('', `<i>Updated ${esc(r.raw.last_updated)}</i>`)
+  } else {
+    lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : '<i>The provider returned data in a format I could not read.</i>')
   }
-  if (lines.length === 2) lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : `<code>${esc(JSON.stringify(r.raw).slice(0, 600))}</code>`)
   lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.flowId ? ` · <code>${esc(r.flowId.slice(0, 8))}</code>` : ''}`)
   return lines.join('\n')
 }
