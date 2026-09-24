@@ -3,6 +3,7 @@ import { realpathSync } from 'node:fs'
 import { scan, format, execute } from '../agent/yo.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
+const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
 const OWNER = process.env.YO_OWNER_CHAT_ID // only this chat may use the wallet
 const QUOTE_TTL = 60_000 // a Confirm button older than this re-quotes instead of trading
 
@@ -16,7 +17,7 @@ export function parse(text = '') {
 }
 
 async function tg(method, body) {
-  const res = await fetch(`https://api.telegram.org/bot${TOKEN}/${method}`, {
+  const res = await fetch(`${TG_API}/bot${TOKEN}/${method}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
   })
   const j = await res.json()
@@ -30,7 +31,7 @@ const say = (chat_id, text, extra = {}) => tg('sendMessage', { chat_id, text: `<
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process
 const pending = new Map()
 
-async function onMessage(msg) {
+export async function onMessage(msg) {
   const chat = msg.chat.id
   if (String(chat) !== OWNER) return say(chat, `yostocks is private. Your chat id: ${chat}\nSet YO_OWNER_CHAT_ID=${chat} to use it.`)
   const p = parse(msg.text)
@@ -46,7 +47,7 @@ async function onMessage(msg) {
   })
 }
 
-async function onCallback(q) {
+export async function onCallback(q) {
   const chat = q.message.chat.id
   const [action, id] = q.data.split(':')
   const p = pending.get(id)

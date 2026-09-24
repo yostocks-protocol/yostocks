@@ -50,6 +50,20 @@ npm start -w apps/bot    # message the bot once, it replies with your chat id
 `/quote NVDA 10` shows the guarded comparison. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
 Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet.
 
+## Testing
+
+```sh
+npm test            # offline: unit + regression + mocked integration (agent, bot, yoguard)
+npm run test:live   # real Binance RWA API + yoguard over A2A (needs WARP in ID, `bag dev` running)
+YO_LIVE_BAW=1 npm run test:live -w apps/agent   # also a real read-only quote through Agentic Wallet
+npm run record -w apps/agent                     # refresh fixtures from the live API
+```
+
+- **Unit**: guard rules (deviation boundaries, multiplier, paused assets, ~0 output), table format, bot command parsing, yoguard request parsing.
+- **Regression**: recorded RWA responses + a fake `baw` replay every failure we hit on mainnet: MSTRx `success:true` with ~0 tokens, xStocks "No liquidity", METAx at a stale −21% price, `SESSION_EXPIRED`, off-hours reference fallback, undocumented provider types.
+- **Integration**: Telegram flows end to end against a fake Bot API (owner-only, Confirm re-checks, double tap, expired button, FAILED order); yoguard `negotiate` over A2A.
+- **Parity**: yoguard's copy of the guard must agree with the CLI's on the same inputs.
+
 ## Layout
 
 - `apps/agent`: the CLI agent (`yo`), zero dependencies. `npm test` runs its guard tests.
