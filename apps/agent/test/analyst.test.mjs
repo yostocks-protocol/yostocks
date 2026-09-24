@@ -94,3 +94,13 @@ test('a rejected payment says which token/method was used and keeps the facilita
   fa.state.submit = [402]
   await assert.rejects(analyst.pay(await analyst.quote('NVDA')), /analyst rejected the paid request \(USDT via [^)]*\): 402/)
 })
+
+test('prefers an EIP-3009 option (U) over a permit2 one (USDT) when both are ready', async () => {
+  sc.set({ x402Preview: { success: true, data: { paymentId: 'p3', options: [
+    { index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USDT', amount: '0.1', assetTransferMethod: 'permit2', needApproveFirst: false },
+    { index: 2, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'U', amount: '0.1', assetTransferMethod: 'eip3009', needApproveFirst: false },
+  ] } } })
+  const q = await analyst.quote('NVDA')
+  assert.equal(q.token, 'U')
+  assert.equal(q.option.index, 2)
+})

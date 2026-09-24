@@ -202,7 +202,7 @@ export async function onCallback(q) {
     if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /analyze again.'))
     await say(chat, ui.notice('Preparing the x402 payment… the analyst takes ~15 seconds to answer.'))
     const q = await analyst.quote(p.analyze.ticker)
-    if (Number(q.amount) > Number(p.analyze.amount) || q.token !== p.analyze.token) {
+    if (Number(q.amount) > Number(p.analyze.amount)) { // any USD stable is fine (U/USD1/USDT); only the amount matters
       return say(chat, ui.notice(`The price is now ${Number(q.amount)} ${q.token}. Nothing was paid; send /analyze again.`))
     }
     const job = await analyst.pay(q)
