@@ -6,8 +6,13 @@ import { FIXTURE, FAKE_BAW, addr, quote, mockFetch, scenario } from '../agent/te
 
 const OWNER = 42
 const sc = scenario({})
-Object.assign(process.env, { BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_POLL_MS: '1', TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER) })
-const { onMessage, onCallback } = await import('./bot.mjs')
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+const DATA = join(mkdtempSync(join(tmpdir(), 'yo-data-')), 'strategies.json')
+Object.assign(process.env, { YO_DATA: DATA, BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_POLL_MS: '1', TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER) })
+const { onMessage, onCallback, store } = await import('./bot.mjs')
+const { deps } = await import('./strategy.mjs')
 
 let sent, restore, msgId
 before(() => {
@@ -141,4 +146,43 @@ test('provider text is HTML-escaped inside <pre>', async () => {
   sc.set({ quotes: { [addr('NVDAB')]: { success: false, error: { message: '<b>bad</b> & worse' } } } })
   await onMessage(msg('/quote NVDA 10'))
   assert.match(texts()[0], /&lt;b&gt;bad&lt;\/b&gt; &amp; worse/)
+})
+
+test('/strategy → Save persists the rule; /strategies lists it; /stop removes it', async () => {
+  const rule = { ticker: 'NVDA', usdt: 10, every: 'week', weekday: 'mon', hourUtc: 14, skipEarnings: true, maxPremiumPct: 0.5, unsupported: [] }
+  deps.client = { responses: { parse: async () => ({ status: 'completed', output: [], output_parsed: rule }) } }
+  await onMessage(msg('/strategy buy $10 of NVDA every Monday, skip earnings, max 0.5% premium'))
+  assert.match(texts()[0], /Buy 10 USDT of NVDA every Monday[\s\S]*save this strategy\?/)
+  const [save] = buttonData()
+  assert.match(save, /^save:/)
+  assert.deepEqual(store.load(), [], 'nothing saved before the tap')
+  await tap(save)
+  const saved = store.load()
+  assert.equal(saved.length, 1)
+  assert.deepEqual(saved[0].rule, rule)
+  assert.deepEqual(JSON.parse(readFileSync(DATA, 'utf8'))[0].rule, rule)
+  await tap(save)
+  assert.equal(store.load().length, 1, 'double tap saves once')
+
+  await onMessage(msg('/strategies'))
+  assert.match(texts().at(-1), new RegExp(`#${saved[0].id}`))
+  await onMessage(msg(`/stop ${saved[0].id}`))
+  assert.equal(store.load().length, 0)
+  assert.match(texts().at(-1), /stopped/)
+  await onMessage(msg('/stop nope'))
+  assert.match(texts().at(-1), /no strategy #nope/)
+})
+
+test('/strategy with unsupported parts is refused with the reason, no Save button', async () => {
+  deps.client = { responses: { parse: async () => ({ status: 'completed', output: [], output_parsed: { ticker: 'NVDA', usdt: 10, every: 'day', weekday: null, hourUtc: 14, skipEarnings: false, maxPremiumPct: null, unsupported: ['sell half if it drops 10%'] } }) } }
+  await onMessage(msg('/strategy buy NVDA daily and sell half if it drops 10%'))
+  assert.match(texts()[0], /can't save this[\s\S]*sell half if it drops 10%/)
+  assert.equal(buttonData(), undefined)
+})
+
+test("a stranger can't use /strategy", async () => {
+  let called = false
+  deps.client = { responses: { parse: async () => { called = true } } }
+  await onMessage(msg('/strategy buy NVDA daily', 7))
+  assert.equal(called, false)
 })
