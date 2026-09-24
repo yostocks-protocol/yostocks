@@ -77,7 +77,7 @@ export function fakeAnalyst(state = {}) {
 /** A fake CoinMarketCap MCP x402 endpoint on cmc.test. state.mode: 'json' | 'sse' | 'cut' (close after payment) | 'reject'. */
 export function fakeCmc(state = {}) {
   const seen = []
-  const metrics = { data: { quote: { USD: { total_market_cap: 3.91e12, total_volume_24h: 1.42e11, total_market_cap_yesterday_percentage_change: -1.23 } }, btc_dominance: 57.8, eth_dominance: 12.4 } }
+  const metrics = JSON.parse(readFileSync(new URL('./fixtures/cmc-global.json', import.meta.url), 'utf8')) // real payload, recorded 2026-09-24
   const rpc = { jsonrpc: '2.0', id: 1, result: { content: [{ type: 'text', text: JSON.stringify(metrics) }] } }
   const handler = async (u, init) => {
     const headers = Object.fromEntries(new Headers(init.headers ?? {}))

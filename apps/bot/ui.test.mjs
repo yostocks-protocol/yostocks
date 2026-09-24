@@ -67,10 +67,24 @@ test('sell card and sold receipt', () => {
   assert.match(r, /Avg price: <b>\$222\.05<\/b> \/ share \(−0\.12% vs NVDA\)/)
 })
 
-test('market card renders CMC sections, never raw JSON when sections exist', () => {
-  const c = ui.marketCard({ metrics: {}, sections: [{ title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39177%' }] }], raw: { last_updated: '24 September 2026' }, paid: '0.01 U', flowId: 'bd9f6966-x' })
-  assert.match(c, /<b>Market size<\/b>\n• Total crypto market cap: <b>2\.88 T<\/b> \(\+0\.39177% 24h\)/)
-  assert.match(c, /Updated 24 September 2026/)
-  assert.match(c, /✅ Paid <b>0\.01 U<\/b> over x402 · <code>bd9f6966<\/code>/)
-  assert.ok(!c.includes('{'))
+test('market card: human summary from the real CMC payload, with a sentiment takeaway, no raw JSON', async () => {
+  const { snapshot } = await import('../agent/cmc.mjs')
+  const { readFileSync } = await import('node:fs')
+  const raw = JSON.parse(readFileSync(new URL('../agent/test/fixtures/cmc-global.json', import.meta.url), 'utf8'))
+  const c = ui.marketCard({ snapshot: snapshot(raw), raw, paid: '0.01 U', flowId: '7eb5bf66-x' })
+  assert.match(c, /😊 Sentiment: <b>Greed<\/b> \(74\/100\) · last week 64/)
+  assert.match(c, /💰 Market cap: <b>\$2\.88T<\/b> · \+0\.39% today, \+10\.70% this week/)
+  assert.match(c, /📊 24h volume: <b>\$104B<\/b> \(−8\.98%\)/)
+  assert.match(c, /₿ BTC dominance: <b>58\.9%<\/b> · ETH 11\.4%/)
+  assert.match(c, /🔄 Altcoin season: <b>55\/100<\/b> \(yesterday 45\)/)
+  assert.match(c, /📈 Open interest: <b>\$394\.88B<\/b> \(−11\.01%\)/)
+  assert.match(c, /<b>What it means:<\/b> Greed: risk appetite is high/)
+  assert.match(c, /✅ Paid <b>0\.01 U<\/b> over x402 · <code>7eb5bf66<\/code>/)
+  assert.ok(!/[{}]|object Object/.test(c))
+})
+
+test('market card falls back to sections, then to a plain message; never "[object Object]"', () => {
+  const c = ui.marketCard({ sections: [{ title: 'Market size', items: [{ label: 'Total crypto market cap', current: '2.88 T', change24h: '+0.39%' }] }], paid: '0.01 U' })
+  assert.match(c, /<b>Market size<\/b>\n• Total crypto market cap: <b>2\.88 T<\/b>/)
+  assert.match(ui.marketCard({ partial: true, paid: '0.01 U' }), /closed the connection/)
 })

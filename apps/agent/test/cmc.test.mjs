@@ -18,7 +18,8 @@ for (const mode of ['json', 'sse']) {
     const n = signs()
     const r = await cmc.buy(await cmc.quote())
     assert.equal(signs(), n + 1)
-    assert.deepEqual(r.metrics, { marketCap: 3.91e12, volume24h: 1.42e11, marketCapChange24h: -1.23, btcDominance: 57.8, ethDominance: 12.4 })
+    assert.deepEqual(r.snapshot.fearGreed, { index: 74, label: 'Greed', lastWeek: 64 })
+    assert.equal(r.snapshot.marketCap.value, '$2.88T')
     assert.equal(r.flowId, '792cd109-29ce-441c-bf98-4bd3456d1b06')
     assert.equal(r.paid, '0.1 USDT') // fake preview default
     const body = JSON.parse(fc.seen.at(-1).body)
@@ -61,4 +62,16 @@ test('sections(): the real CMC schema (grouped, display strings) → readable it
     { title: 'Liquidity', items: [{ label: 'Total volume 24h', current: '98.1 B', change24h: '-3.2%' }] },
   ])
   assert.deepEqual(cmc.sections(null), [])
+})
+
+test('snapshot() on the real payload; sections() never renders nested objects as text', async () => {
+  const { readFileSync } = await import('node:fs')
+  const raw = JSON.parse(readFileSync(new URL('./fixtures/cmc-global.json', import.meta.url), 'utf8'))
+  const x = cmc.snapshot(raw)
+  assert.deepEqual(x.fearGreed, { index: 74, label: 'Greed', lastWeek: 64 })
+  assert.deepEqual(x.marketCap, { value: '$2.88T', d24: 0.39177, d7: 10.7 })
+  assert.equal(x.btcDominance, 58.92)
+  assert.deepEqual(x.altSeason, { index: 55, yesterday: 45 })
+  assert.equal(cmc.snapshot({ foo: 1 }), null)
+  for (const sec of cmc.sections(raw)) for (const it of sec.items) assert.ok(!it.current.includes('[object'), `${sec.title}/${it.label}`)
 })
