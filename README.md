@@ -37,6 +37,7 @@ baw auth signin          # confirm in the Binance App
 cd apps/agent
 node yo.mjs quote NVDA 100
 node yo.mjs buy NVDA 100     # asks before swapping; --yes to skip
+node yo.mjs sell NVDA        # sell all you hold (or: sell NVDA 0.01)
 ```
 
 | env | default | meaning |
@@ -53,7 +54,8 @@ npm start -w apps/bot    # message the bot once, it replies with your chat id
                          # put it in YO_OWNER_CHAT_ID and restart
 ```
 
-`/quote NVDA 10` shows the guarded comparison. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
+`/quote NVDA 10` shows the guarded comparison. `/sell NVDA` (or `/sell NVDA 0.01`) sells the NVDA token you
+hold for USDT, with the same guard on the sell price. `/buy NVDA 10` shows it with Confirm/Cancel buttons;
 Confirm re-runs the guard (quotes older than 60s are refused) before swapping. Only the owner chat can use the wallet.
 
 `/strategy buy $10 of NVDA every Monday 9pm, skip earnings, max 0.5% premium` → an OpenAI model (`gpt-4o-mini` by default,

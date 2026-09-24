@@ -230,3 +230,49 @@ test('stock logo unavailable → falls back to the bot logo, then to plain text'
     assert.equal(sent[0].method, 'sendMessage')
   } finally { brand.logo = null; restore(); restore = mockFetch(FIXTURE, { tg: (method, body) => { sent.push({ method, ...body }); return method === 'sendMessage' || method === 'sendPhoto' ? { message_id: ++msgId } : true } }) }
 })
+
+// ---- /sell ----
+const HELD = '0.022409841731513969'
+const holding = (symbol, balance = HELD) => [{ symbol, address: addr(symbol), binanceChainId: '56', balance }]
+const sellFair = (sym, qty, pct = 0) => Number(qty) * mult(sym) * ref * (1 + pct / 100)
+
+test('/sell NVDA → card with Sell button → Confirm re-checks, swaps NVDAB → USDT once, sends a Sold receipt', async () => {
+  const USDT = '0x55d398326f99059ff775485246999027b3197955'
+  sc.set({ balances: holding('NVDAB'), sellQuotes: { [addr('NVDAB')]: quote(sellFair('NVDAB', HELD, 0.06)) },
+    swap: { success: true, data: { orderId: 'bad' } }, idLookupBroken: true,
+    recent: [{ orderId: 's-9', status: 'FINISHED', fromToken: addr('NVDAB'), fromTokenQty: HELD, toToken: USDT, toTokenActualQty: '4.98', txHash: '0x5e11' }] })
+  const n = swaps().length
+  await onMessage(msg('/sell NVDA'))
+  assert.match(texts()[0], /Selling <b>0\.022410 NVDAB<\/b> \(bStocks\)[\s\S]*You receive ≈/)
+  const [yes, no] = buttonData()
+  assert.match(yes, /^sell:/)
+  assert.match(no, /^no:/)
+  assert.equal(swaps().length, n, 'nothing sold before Confirm')
+  await tap(yes)
+  assert.equal(swaps().length, n + 1)
+  const s = swaps().at(-1)
+  assert.equal(s[s.indexOf('--fromToken') + 1], addr('NVDAB'))
+  assert.equal(s[s.indexOf('--toToken') + 1].toLowerCase(), USDT)
+  assert.equal(s[s.indexOf('--fromTokenQty') + 1], HELD)
+  assert.match(texts().join('\n'), /⏳ <b>Order submitted<\/b> · 0\.022409841731513969 NVDAB → USDT/)
+  assert.match(texts().at(-1), /✅ <b>Sold<\/b>[\s\S]*4\.9800 USDT[\s\S]*bscscan\.com\/tx\/0x5e11/)
+  await tap(yes)
+  assert.equal(swaps().length, n + 1, 'double tap sells once')
+})
+
+test('/sell when Ondo is closed shows the reason and no Sell button', async () => {
+  sc.set({ balances: holding('NVDAon', '0.01'), sellQuotes: { [addr('NVDAon')]: { success: false, error: { code: 316008, name: 'SERVICE_ERROR', message: 'Token NVDAon currently has no available liquidity. Please trade during stock market opening hours.' } } } })
+  await onMessage(msg('/sell NVDA'))
+  assert.match(texts()[0], /Not selling\.[\s\S]*stock market opening hours/)
+  assert.equal(buttonData(), undefined)
+})
+
+test('/sell of something not held, and a stranger pressing Sell, never trade', async () => {
+  sc.set({ balances: [] })
+  await assert.rejects(onMessage(msg('/sell MSTR')), /you don't hold any MSTR token/)
+  sc.set({ balances: holding('NVDAB'), sellQuotes: { [addr('NVDAB')]: quote(sellFair('NVDAB', HELD)) } })
+  await onMessage(msg('/sell NVDA'))
+  const n = swaps().length
+  await tap(buttonData()[0], 7)
+  assert.equal(swaps().length, n)
+})

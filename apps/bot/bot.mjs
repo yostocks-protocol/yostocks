@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { scan, execute } from '../agent/yo.mjs'
+import { scan, execute, scanSell, executeSell } from '../agent/yo.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
@@ -21,6 +21,11 @@ export function parse(text = '') {
   const [cmd, ticker, amount] = text.trim().split(/\s+/)
   const name = cmd?.replace(/@.*$/, '').toLowerCase() // "/buy@yostocks_bot" in groups
   const usdt = Number(amount)
+  if (name === '/sell') {
+    const qty = !amount || amount.toLowerCase() === 'all' ? 'all' : amount
+    if (!/^[A-Za-z.]{1,10}$/.test(ticker ?? '') || (qty !== 'all' && !(Number(qty) > 0))) return { cmd: name, error: 'usage: /sell NVDA (all) or /sell NVDA 0.01' }
+    return { cmd: name, ticker: ticker.toUpperCase(), amount: qty }
+  }
   if (!['/quote', '/buy'].includes(name)) return { cmd: name }
   if (!/^[A-Za-z.]{1,10}$/.test(ticker ?? '') || !(usdt > 0) || usdt > 1000) return { cmd: name, error: `usage: ${name} NVDA 10 (1–1000 USDT)` }
   return { cmd: name, ticker: ticker.toUpperCase(), usdt }
@@ -74,6 +79,14 @@ export async function onMessage(msg) {
   if (p.error) return say(chat, ui.notice(p.error))
   if (!p.ticker) return card(chat, ui.HELP)
 
+  if (p.cmd === '/sell') {
+    const s = await scanSell(p.ticker, p.amount)
+    const m = await stockMeta(s.row.t)
+    if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
+    const id = Math.random().toString(36).slice(2, 10)
+    pending.set(id, { ...p, at: Date.now() })
+    return card(chat, ui.sellCard(s, { ask: true, company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.qty, s.row.t.symbol) })
+  }
   const s = await scan(p.ticker, p.usdt)
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const photo = m?.photo ?? brand.logo
@@ -107,13 +120,22 @@ export async function onCallback(q) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
     return say(chat, ui.strategySaved(id, describe(p.rule)))
   }
-  if (action !== 'buy' || !p.ticker) return say(chat, ui.notice('This button has expired. Send /buy again.'))
-  if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This quote is older than 60 seconds. Send /buy again for a fresh one.'))
+  if (!['buy', 'sell'].includes(action) || !p.ticker) return say(chat, ui.notice('This button has expired. Send /buy again.'))
+  if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice(`This quote is older than 60 seconds. Send /${action} again for a fresh one.`))
+
+  if (action === 'sell') {
+    const s = await scanSell(p.ticker, p.amount) // re-check right before trading
+    const m = await stockMeta(s.row.t)
+    if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
+    const r = await executeSell(s.row.t, s.qty, (orderId) => say(chat, ui.submitting(`${s.qty} ${s.row.t.symbol}`, 'USDT', orderId)))
+    if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
+    return card(chat, ui.sellReceipt({ ...s, company: m?.company, got: r.got ?? s.usdtOut, tx: r.tx, orderId: r.orderId }), { photo: m?.photo ?? brand.logo })
+  }
 
   // Re-run the guard right before trading: the quote the user saw may have moved.
   const s = await scan(p.ticker, p.usdt)
   if (!s.best) return say(chat, ui.quoteCard(s))
-  const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, ui.submitting(p.usdt, s.best.t.symbol, orderId)))
+  const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, ui.submitting(`${p.usdt} USDT`, s.best.t.symbol, orderId)))
   if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
   const m = await stockMeta(s.best.t)
   return card(chat, ui.receipt({ ticker: p.ticker, company: m?.company, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx, orderId: r.orderId }), { photo: m?.photo ?? brand.logo })

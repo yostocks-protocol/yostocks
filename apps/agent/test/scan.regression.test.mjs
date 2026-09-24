@@ -8,7 +8,7 @@ const sc = scenario({})
 process.env.BAW = FAKE_BAW
 process.env.FAKE_BAW = sc.file
 process.env.YO_POLL_MS = '1'
-const { scan, execute } = await import('../yo.mjs')
+const { scan, execute, scanSell, executeSell } = await import('../yo.mjs')
 
 let restore
 before(() => { restore = mockFetch() })
@@ -168,4 +168,67 @@ test('execute: swap orderId unknown to `list` (#21, first mainnet buy) → match
 test('execute: id lookup broken and no matching order yet → PENDING, not a fake fill', async () => {
   sc.set({ swap: { success: true, data: { orderId: 'ghost' } }, idLookupBroken: true, recent: [] })
   assert.equal((await execute({ contractAddress: addr('NVDAB') }, 5)).status, 'PENDING')
+})
+
+// ---- selling ----
+const bal = (symbol, balance) => ({ symbol, address: addr(symbol), binanceChainId: '56', balance: String(balance) })
+const HELD = '0.022409841731513969' // what the first mainnet buy left in the wallet
+/** USDT out for selling `qty` tokens of `sym` at `pct`% vs the US price */
+const sellFor = (sym, qty, pct = 0) => Number(qty) * mult(sym) * ref(FIXTURE, sym.replace(/(on|x|B)$/, 'on')) * (1 + pct / 100)
+
+test('scanSell: finds the held token and prices the sell per share against the reference', async () => {
+  sc.set({ balances: [bal('NVDAB', HELD), { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '5' }], sellQuotes: { [addr('NVDAB')]: quote(sellFor('NVDAB', HELD, 0.06)) } })
+  const s = await scanSell('NVDA')
+  assert.equal(s.row.t.symbol, 'NVDAB')
+  assert.equal(s.qty, HELD, 'all = the exact balance string, no float rounding')
+  assert.equal(s.ok, true)
+  assert.ok(Math.abs(s.dev - 0.06) < 0.001)
+  const q = sc.calls().filter((c) => c[1] === 'quote').at(-1)
+  assert.equal(q[q.indexOf('--fromToken') + 1].toLowerCase(), addr('NVDAB'))
+  assert.equal(q[q.indexOf('--fromTokenQty') + 1], HELD)
+})
+
+test('scanSell: a sell quote far below the real price is rejected (you would be dumping)', async () => {
+  sc.set({ balances: [bal('NVDAB', HELD)], sellQuotes: { [addr('NVDAB')]: quote(sellFor('NVDAB', HELD, -3)) } })
+  const s = await scanSell('NVDA')
+  assert.equal(s.ok, false)
+  assert.match(s.why, /-3\.00% off reference/)
+})
+
+test('scanSell: Ondo "trade during stock market opening hours" error is surfaced, not traded', async () => {
+  const msg = 'Token NVDAon currently has no available liquidity. Please trade during stock market opening hours.'
+  sc.set({ balances: [bal('NVDAon', '0.01')], sellQuotes: { [addr('NVDAon')]: { success: false, error: { code: 316008, name: 'SERVICE_ERROR', message: msg } } } })
+  const s = await scanSell('NVDA')
+  assert.equal(s.ok, false)
+  assert.equal(s.why, msg)
+})
+
+test('scanSell: holding several NVDA tokens → sells the one with the most shares', async () => {
+  sc.set({ balances: [bal('NVDAon', '0.001'), bal('NVDAB', HELD)], sellQuotes: { [addr('NVDAB')]: quote(sellFor('NVDAB', HELD)) } })
+  assert.equal((await scanSell('NVDA')).row.t.symbol, 'NVDAB')
+})
+
+test('scanSell: partial amount, over-balance, nothing held, bad amount, expired session', async () => {
+  sc.set({ balances: [bal('NVDAB', HELD)], sellQuotes: { [addr('NVDAB')]: quote(sellFor('NVDAB', 0.01)) } })
+  assert.equal((await scanSell('NVDA', '0.01')).qty, '0.01')
+  await assert.rejects(scanSell('NVDA', '1'), /you hold 0\.022409841731513969 NVDAB, can't sell 1/)
+  await assert.rejects(scanSell('NVDA', '-1'), /can't sell -1/)
+  sc.set({ balances: [] })
+  await assert.rejects(scanSell('NVDA'), /you don't hold any NVDA token/)
+  sc.set({ auth: 'SESSION_EXPIRED' })
+  await assert.rejects(scanSell('NVDA'), /Agentic Wallet SESSION_EXPIRED/)
+})
+
+test('executeSell: swaps token → USDT for the exact qty and reports USDT received', async () => {
+  const USDT = '0x55d398326f99059fF775485246999027B3197955'
+  sc.set({ swap: { success: true, data: { orderId: 'bad-id' } }, idLookupBroken: true, recent: [
+    { orderId: 's-1', status: 'FINISHED', fromToken: addr('NVDAB'), fromTokenQty: HELD, toToken: USDT, toTokenActualQty: '4.98', txHash: '0x5e11' },
+  ] })
+  const n = sc.calls().length
+  const r = await executeSell({ contractAddress: addr('NVDAB') }, HELD)
+  assert.deepEqual(r, { orderId: 's-1', status: 'FINISHED', tx: 'https://bscscan.com/tx/0x5e11', got: '4.98' })
+  const swap = sc.calls().slice(n).find((c) => c[1] === 'swap')
+  assert.equal(swap[swap.indexOf('--fromToken') + 1], addr('NVDAB'))
+  assert.equal(swap[swap.indexOf('--toToken') + 1], USDT)
+  assert.equal(swap[swap.indexOf('--fromTokenQty') + 1], HELD)
 })

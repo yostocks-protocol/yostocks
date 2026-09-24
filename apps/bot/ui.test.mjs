@@ -42,7 +42,7 @@ test('strategy list shows ids and bullet points, or a hint when empty', () => {
 })
 
 test('command menu fits Telegram limits and matches what the bot handles', () => {
-  const handled = ['quote', 'buy', 'strategy', 'strategies', 'stop', 'start']
+  const handled = ['quote', 'buy', 'sell', 'strategy', 'strategies', 'stop', 'start']
   assert.deepEqual(ui.COMMANDS.map((c) => c.command).sort(), handled.sort())
   for (const c of ui.COMMANDS) {
     assert.match(c.command, /^[a-z0-9_]{1,32}$/)
@@ -50,4 +50,19 @@ test('command menu fits Telegram limits and matches what the bot handles', () =>
   }
   assert.ok(ui.DESCRIPTION.length <= 512)
   assert.ok(ui.SHORT_DESCRIPTION.length <= 120)
+})
+
+test('sell card and sold receipt', () => {
+  const row = { t: { type: 3, symbol: 'NVDAB' }, multiplier: 1.000778223752807865 }
+  const s = { ticker: 'NVDA', ref: 222.31, row, qty: '0.022409841731513969', usdtOut: 4.9889, ok: true, perShare: 222.45, dev: 0.06 }
+  const c = ui.sellCard(s, { ask: true, company: 'Nvidia Corp' })
+  assert.match(c, /<b>NVDA<\/b> · Nvidia Corp · sell/)
+  assert.match(c, /Selling <b>0\.022410 NVDAB<\/b> \(bStocks\)/)
+  assert.match(c, /Sell price <b>\$222\.45<\/b> \/ share · \+0\.06%/)
+  assert.match(c, /You receive ≈ <b>4\.9889 USDT<\/b>/)
+  assert.match(ui.sellCard({ ...s, ok: false, why: 'Please trade during <stock> market opening hours.' }), /⛔ <b>Not selling\.<\/b> <i>Please trade during &lt;stock&gt;/)
+  assert.equal(ui.sellButtons('x', s.qty, 'NVDAB').inline_keyboard[0][0].text, '✅ Sell 0.022410 NVDAB → USDT')
+  const r = ui.sellReceipt({ ...s, company: 'Nvidia Corp', got: '4.98', tx: 'https://bscscan.com/tx/0x5e11', orderId: 's-1' })
+  assert.match(r, /✅ <b>Sold<\/b>[\s\S]*<b>4\.9800 USDT<\/b> for 0\.022410 NVDAB\nNvidia Corp \(NVDA\) on bStocks/)
+  assert.match(r, /Avg price: <b>\$222\.05<\/b> \/ share \(−0\.12% vs NVDA\)/)
 })
