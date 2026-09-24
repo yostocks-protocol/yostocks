@@ -17,6 +17,18 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /strategies · your saved strategies
 /stop &lt;id&gt; · remove one`
 
+/** Telegram's command menu (setMyCommands) and the text shown before a user presses Start. */
+export const COMMANDS = [
+  { command: 'quote', description: 'Compare a stock across Ondo, xStocks, bStocks · /quote NVDA 10' },
+  { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
+  { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
+  { command: 'strategies', description: 'Your saved strategies' },
+  { command: 'stop', description: 'Remove a strategy · /stop <id>' },
+  { command: 'start', description: 'How yostocks works' },
+]
+export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostocks compares Ondo, xStocks and bStocks against the real stock price, blocks bad quotes, and buys from the best route through your Binance Agentic Wallet.'
+export const SHORT_DESCRIPTION = 'Tokenized US stocks on BNB Chain, with a safety check on every trade.'
+
 export const privateBot = (chat) => `🔒 <b>yostocks is private.</b>\nYour chat id is <code>${esc(chat)}</code>. Set <code>YO_OWNER_CHAT_ID=${esc(chat)}</code> to use it.`
 
 /** Guarded comparison of every provider for one ticker (output of scan()). */

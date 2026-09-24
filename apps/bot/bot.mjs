@@ -122,6 +122,12 @@ export async function onCallback(q) {
 async function main() {
   if (!TOKEN) throw new Error('set TELEGRAM_BOT_TOKEN')
   const me = await tg('getMe', {})
+  await Promise.all([
+    tg('setMyCommands', { commands: ui.COMMANDS }),
+    tg('setMyDescription', { description: ui.DESCRIPTION }),
+    tg('setMyShortDescription', { short_description: ui.SHORT_DESCRIPTION }),
+    tg('setChatMenuButton', { menu_button: { type: 'commands' } }),
+  ]).catch((e) => console.error('menu setup', e.message))
   const photos = await tg('getUserProfilePhotos', { user_id: me.id, limit: 1 }).catch(() => null)
   brand.logo = photos?.photos?.[0]?.at(-1)?.file_id ?? null // largest size of the current avatar
   console.log(`@${me.username} running, owner chat ${OWNER ?? '(unset: send /start to get your id)'}, logo ${brand.logo ? 'yes' : 'no'}`)

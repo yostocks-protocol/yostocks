@@ -40,3 +40,14 @@ test('strategy list shows ids and bullet points, or a hint when empty', () => {
   assert.match(ui.strategyList([{ id: 'ab12', description: 'Buy 10 USDT of NVDA every day\n· skip while earnings limits are active' }]), /<code>#ab12<\/code>\nBuy 10 USDT[\s\S]*\n• skip while/)
   assert.match(ui.strategyList([]), /No strategies yet/)
 })
+
+test('command menu fits Telegram limits and matches what the bot handles', () => {
+  const handled = ['quote', 'buy', 'strategy', 'strategies', 'stop', 'start']
+  assert.deepEqual(ui.COMMANDS.map((c) => c.command).sort(), handled.sort())
+  for (const c of ui.COMMANDS) {
+    assert.match(c.command, /^[a-z0-9_]{1,32}$/)
+    assert.ok(c.description.length >= 1 && c.description.length <= 256, c.command)
+  }
+  assert.ok(ui.DESCRIPTION.length <= 512)
+  assert.ok(ui.SHORT_DESCRIPTION.length <= 120)
+})
