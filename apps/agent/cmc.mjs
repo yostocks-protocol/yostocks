@@ -1,4 +1,5 @@
 // Global crypto market snapshot from CoinMarketCap's MCP server, paid per call over x402 ($0.01).
+import { writeFileSync, mkdirSync } from 'node:fs'
 import { challenge, payAndSend, readAll, rejection, decode } from './x402.mjs'
 
 export const CMC = process.env.YO_CMC_URL ?? 'https://mcp.coinmarketcap.com/x402/mcp'
@@ -25,7 +26,11 @@ export async function buy(ch) {
   if (res.status !== 200) throw rejection(ch, res, text)
   const settlement = decode(res.headers.get('payment-response'))
   const raw = parseMcp(text)
-  return { metrics: metrics(raw), raw, flowId: settlement?.x402FlowId ?? null, paid: `${Number(ch.amount)} ${ch.token}`, partial: raw == null }
+  try { // keep the last paid payload: real-schema fixture + evidence of what we bought
+    mkdirSync(new URL('./data/', import.meta.url), { recursive: true })
+    writeFileSync(new URL('./data/cmc-last.json', import.meta.url), JSON.stringify({ at: new Date().toISOString(), settlement, raw }, null, 1))
+  } catch {}
+  return { metrics: metrics(raw), sections: sections(raw), raw, flowId: settlement?.x402FlowId ?? null, paid: `${Number(ch.amount)} ${ch.token}`, partial: raw == null }
 }
 
 /** MCP tools/call result as plain JSON or SSE `data:` lines → the tool's payload (parsed if it's JSON). */
@@ -59,4 +64,27 @@ export function metrics(raw) {
     btcDominance: pick(raw, ['btc_dominance', 'btcDominance']),
     ethDominance: pick(raw, ['eth_dominance', 'ethDominance']),
   }
+}
+
+const human = (k) => k.replace(/_usd$/, '').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
+
+/**
+ * CMC's real payload is grouped by theme, values are display strings:
+ * { last_updated, market_size: { definition, total_crypto_market_cap_usd: { current: "2.88 T", percent_change: { "24h": "+0.39%" } } }, … }
+ * → [{ title, items: [{ label, current, change24h }] }]
+ */
+export function sections(raw) {
+  if (!raw || typeof raw !== 'object') return []
+  const out = []
+  for (const [key, group] of Object.entries(raw)) {
+    if (!group || typeof group !== 'object' || Array.isArray(group)) continue
+    const items = []
+    for (const [k, v] of Object.entries(group)) {
+      if (k === 'definition') continue
+      if (v && typeof v === 'object' && 'current' in v) items.push({ label: human(k), current: String(v.current), change24h: v.percent_change?.['24h'] ?? null })
+      else if (typeof v === 'string' || typeof v === 'number') items.push({ label: human(k), current: String(v), change24h: null })
+    }
+    if (items.length) out.push({ title: human(key), items: items.slice(0, 3) })
+  }
+  return out.slice(0, 5)
 }

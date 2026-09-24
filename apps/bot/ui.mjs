@@ -166,6 +166,15 @@ export function marketCard(r) {
   if (m.marketCap != null) lines.push(`Total market cap: <b>${big(m.marketCap)}</b>${m.marketCapChange24h != null ? ` (${pct(m.marketCapChange24h)} 24h)` : ''}`)
   if (m.volume24h != null) lines.push(`24h volume: <b>${big(m.volume24h)}</b>`)
   if (m.btcDominance != null) lines.push(`BTC dominance: <b>${m.btcDominance.toFixed(1)}%</b>${m.ethDominance != null ? ` · ETH ${m.ethDominance.toFixed(1)}%` : ''}`)
+  if (lines.length === 2 && r.sections?.length) {
+    for (const sec of r.sections) {
+      lines.push(`<b>${esc(sec.title)}</b>`)
+      for (const it of sec.items) lines.push(`• ${esc(it.label)}: <b>${esc(it.current)}</b>${it.change24h ? ` (${esc(it.change24h)} 24h)` : ''}`)
+      lines.push('')
+    }
+    lines.pop()
+    if (r.raw?.last_updated) lines.push('', `<i>Updated ${esc(r.raw.last_updated)}</i>`)
+  }
   if (lines.length === 2) lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : `<code>${esc(JSON.stringify(r.raw).slice(0, 600))}</code>`)
   lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.flowId ? ` · <code>${esc(r.flowId.slice(0, 8))}</code>` : ''}`)
   return lines.join('\n')
