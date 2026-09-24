@@ -13,6 +13,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /buy NVDA 10 · buy from the safest, cheapest route
 /sell NVDA · sell what you hold (or /sell NVDA 0.01)
 /analyze NVDA · research report from BNB Agent Studio, paid via x402
+/market · crypto market snapshot from CoinMarketCap, paid via x402
 
 <b>Autopilot</b>
 /strategy buy $10 of NVDA every Monday, skip earnings
@@ -25,6 +26,7 @@ export const COMMANDS = [
   { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
   { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
   { command: 'analyze', description: 'Research report by BNB Agent Studio, paid via x402 · /analyze NVDA' },
+  { command: 'market', description: 'Crypto market snapshot from CoinMarketCap, paid via x402' },
   { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
   { command: 'strategies', description: 'Your saved strategies' },
   { command: 'stop', description: 'Remove a strategy · /stop <id>' },
@@ -38,6 +40,7 @@ export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain,
 You're in <b>demo mode</b>: try it on live mainnet data.
 /quote NVDA 10 · compare Ondo, xStocks and bStocks against the real stock price
 /analyze NVDA · see the x402 research offer from BNB Agent Studio
+/market · see the x402 market-data offer from CoinMarketCap
 
 Buying, selling and strategies run on the owner's wallet only.`
 export const ownerOnly = '🔒 Trading runs on the owner\'s wallet only. In demo mode try /quote NVDA 10 or /analyze NVDA.'
@@ -144,6 +147,27 @@ export function analysisReport(ticker, sum, company) {
   if (sum.target) lines.push(`<b>Target price:</b> ${esc(sum.target.replace(/^.*?target\s*price\s*:?\s*/i, ''))}`)
   if (sum.risks.length) lines.push('', '<b>Key risks</b>', ...sum.risks.map((r) => `• ${esc(r.slice(0, 160))}`))
   lines.push('', '<i>Full report attached. Third-party analysis, not financial advice.</i>')
+  return lines.join('\n')
+}
+
+// ---- market snapshot (CoinMarketCap MCP, paid over x402) ----
+const big = (n) => (n >= 1e12 ? `$${(n / 1e12).toFixed(2)}T` : n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : usd(n))
+export const marketOffer = (q) => [
+  '🌍 <b>Crypto market snapshot</b> · CoinMarketCap',
+  'Total market cap, 24h volume and change, BTC / ETH dominance: context before you trade.',
+  '',
+  `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet.`,
+  '<i>Confirm within 60 seconds.</i>',
+].join('\n')
+export const marketButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `mkt:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+export function marketCard(r) {
+  const m = r.metrics ?? {}
+  const lines = ['🌍 <b>Crypto market now</b> · CoinMarketCap', '']
+  if (m.marketCap != null) lines.push(`Total market cap: <b>${big(m.marketCap)}</b>${m.marketCapChange24h != null ? ` (${pct(m.marketCapChange24h)} 24h)` : ''}`)
+  if (m.volume24h != null) lines.push(`24h volume: <b>${big(m.volume24h)}</b>`)
+  if (m.btcDominance != null) lines.push(`BTC dominance: <b>${m.btcDominance.toFixed(1)}%</b>${m.ethDominance != null ? ` · ETH ${m.ethDominance.toFixed(1)}%` : ''}`)
+  if (lines.length === 2) lines.push(r.partial ? '<i>Paid, but the provider closed the connection before sending the data.</i>' : `<code>${esc(JSON.stringify(r.raw).slice(0, 600))}</code>`)
+  lines.push('', `✅ Paid <b>${esc(r.paid)}</b> over x402${r.flowId ? ` · <code>${esc(r.flowId.slice(0, 8))}</code>` : ''}`)
   return lines.join('\n')
 }
 
