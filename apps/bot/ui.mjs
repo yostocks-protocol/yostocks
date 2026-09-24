@@ -12,6 +12,7 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /quote NVDA 10 · compare Ondo, xStocks and bStocks
 /buy NVDA 10 · buy from the safest, cheapest route
 /sell NVDA · sell what you hold (or /sell NVDA 0.01)
+/analyze NVDA · research report from BNB Agent Studio, paid via x402
 
 <b>Autopilot</b>
 /strategy buy $10 of NVDA every Monday, skip earnings
@@ -23,6 +24,7 @@ export const COMMANDS = [
   { command: 'quote', description: 'Compare a stock across Ondo, xStocks, bStocks · /quote NVDA 10' },
   { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
   { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
+  { command: 'analyze', description: 'Research report by BNB Agent Studio, paid via x402 · /analyze NVDA' },
   { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
   { command: 'strategies', description: 'Your saved strategies' },
   { command: 'stop', description: 'Remove a strategy · /stop <id>' },
@@ -117,6 +119,25 @@ export function problem(message) {
 }
 
 export const notice = (text) => `ℹ️ ${esc(text)}`
+
+// ---- analysis (BNB Agent Studio Stock Analyze Agent, paid over x402) ----
+export const analysisOffer = (ticker, q, company) => [
+  `🧠 <b>${esc(ticker)} research report</b>${company ? ` · ${esc(company)}` : ''}`,
+  'By the BNB Agent Studio <b>Stock Analyze Agent</b>: rating, target price, fundamentals, technicals, risks.',
+  '',
+  `Price: <b>${Number(q.amount)} ${esc(q.token)}</b>, paid over x402 from your Agentic Wallet${q.approve ? ' (first time: one gas-free approval)' : ''}.`,
+  '<i>Ready in 2–5 minutes. Confirm within 60 seconds.</i>',
+].join('\n')
+export const payButtons = (id, q) => ({ inline_keyboard: [[{ text: `💳 Pay ${Number(q.amount)} ${q.token}`, callback_data: `pay:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+export const analysisPaid = (job) => `✅ <b>Paid ${esc(job.paid)}</b> over x402${job.txHash ? ` · <a href="https://bscscan.com/tx/${esc(job.txHash)}">tx ↗</a>` : ''}\n🧠 Analysing ${esc(job.ticker)}… I'll send the report here in 2–5 minutes.`
+export function analysisReport(ticker, sum, company) {
+  const lines = [`🧠 <b>${esc(ticker)} research report</b>${company ? ` · ${esc(company)}` : ''}`, '']
+  if (sum.rating) lines.push(`<b>Rating:</b> ${esc(sum.rating.replace(/^.*?rating\s*:?\s*/i, ''))}`)
+  if (sum.target) lines.push(`<b>Target price:</b> ${esc(sum.target.replace(/^.*?target\s*price\s*:?\s*/i, ''))}`)
+  if (sum.risks.length) lines.push('', '<b>Key risks</b>', ...sum.risks.map((r) => `• ${esc(r.slice(0, 160))}`))
+  lines.push('', '<i>Full report attached. Third-party analysis, not financial advice.</i>')
+  return lines.join('\n')
+}
 
 // ---- strategies ----
 export const strategyCard = (description) => `🗓 <b>New strategy</b>\n\n${esc(description).replace(/\n· /g, '\n• ')}\n\n<i>Save it to run automatically.</i>`

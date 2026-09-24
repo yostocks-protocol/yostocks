@@ -5,6 +5,7 @@ import { scan, execute, scanSell, executeSell } from '../agent/yo.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
+import * as analyst from '../agent/analyst.mjs'
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN
 const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
@@ -46,6 +47,50 @@ const say = (chat_id, html, extra = {}) => tg('sendMessage', { chat_id, text: ht
 const card = (chat_id, html, { photo = brand.logo, ...extra } = {}) =>
   photo ? tg('sendPhoto', { chat_id, photo, caption: html, parse_mode: 'HTML', ...extra }) : say(chat_id, html, extra)
 
+/** Upload a text file (e.g. the analysis report) as a Telegram document. */
+async function sendFile(chat_id, name, text, caption) {
+  const form = new FormData()
+  form.set('chat_id', String(chat_id))
+  form.set('document', new Blob([text], { type: 'text/markdown' }), name)
+  if (caption) { form.set('caption', caption); form.set('parse_mode', 'HTML') }
+  const j = await (await fetch(`${TG_API}/bot${TOKEN}/sendDocument`, { method: 'POST', body: form })).json()
+  if (!j.ok) throw new Error(`sendDocument: ${j.description}`)
+}
+
+export const WATCH = { everyMs: Number(process.env.YO_JOB_POLL_MS ?? 15_000), maxTries: 40 } // ~10 min
+
+/** Poll a paid analysis job in the background and deliver the report when it's ready. */
+export async function watchJob(chat, job) {
+  let resumed = false
+  for (let i = 0; i < WATCH.maxTries; i++) {
+    await new Promise((r) => setTimeout(r, WATCH.everyMs))
+    const r = await analyst.poll(job).catch((e) => ({ status: 'error', error: e.message }))
+    if (r.status === 'succeeded') {
+      const m = await stockMetaByTicker(job.ticker)
+      await card(chat, ui.analysisReport(job.ticker, analyst.summarize(r.report), m?.company), { photo: m?.photo ?? brand.logo })
+      await sendFile(chat, `${job.ticker}-analysis.md`, r.report)
+      analyst.saveJob({ ...job, delivered: true })
+      return 'delivered'
+    }
+    if (r.status === 'failed') {
+      if (r.retryable && !resumed && await analyst.resume(job)) { resumed = true; continue } // free retry, no new payment
+      await say(chat, ui.problem(`analysis job ${job.jobId} failed${r.error ? `: ${r.error}` : ''}. You were charged ${job.paid}; job token kept for support.`))
+      analyst.saveJob({ ...job, delivered: 'failed' })
+      return 'failed'
+    }
+  }
+  await say(chat, ui.notice(`The ${job.ticker} report is taking longer than usual. It's paid and saved (job ${job.jobId}); I'll pick it up again on restart.`))
+  return 'timeout'
+}
+
+async function stockMetaByTicker(ticker) {
+  const list = await fetch('https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa/stock/detail/list/ai', {
+    headers: { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' },
+  }).then((r) => r.json()).then((j) => j.data).catch(() => [])
+  const t = list.find((x) => x.chainId === '56' && x.ticker === ticker && x.type === 3) ?? list.find((x) => x.chainId === '56' && x.ticker === ticker)
+  return t ? stockMeta(t) : null
+}
+
 const metaCache = new Map()
 /** Stock logo URL + company name for a token from Binance RWA meta; null if unavailable. */
 export async function stockMeta(token) {
@@ -68,6 +113,14 @@ export async function onMessage(msg) {
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
+  if (name === '/analyze') {
+    const ticker = rest[0]?.toUpperCase()
+    if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
+    const [q, m] = await Promise.all([analyst.quote(ticker), stockMetaByTicker(ticker)])
+    const id = Math.random().toString(36).slice(2, 10)
+    pending.set(id, { analyze: q, at: Date.now() })
+    return card(chat, ui.analysisOffer(ticker, q, m?.company), { photo: m?.photo ?? brand.logo, reply_markup: ui.payButtons(id, q) })
+  }
   if (name === '/strategies') return say(chat, ui.strategyList(store.load().map((s) => ({ id: s.id, description: describe(s.rule) }))))
   if (name === '/stop') {
     const list = store.load()
@@ -120,6 +173,13 @@ export async function onCallback(q) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
     return say(chat, ui.strategySaved(id, describe(p.rule)))
   }
+  if (action === 'pay' && p.analyze) {
+    if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice('This offer is older than 60 seconds. Send /analyze again.'))
+    const job = await analyst.pay(p.analyze)
+    await say(chat, ui.analysisPaid(job))
+    watchJob(chat, job).catch((e) => say(chat, ui.problem(e.message)).catch(() => {}))
+    return job
+  }
   if (!['buy', 'sell'].includes(action) || !p.ticker) return say(chat, ui.notice('This button has expired. Send /buy again.'))
   if (Date.now() - p.at > QUOTE_TTL) return say(chat, ui.notice(`This quote is older than 60 seconds. Send /${action} again for a fresh one.`))
 
@@ -153,6 +213,8 @@ async function main() {
   const photos = await tg('getUserProfilePhotos', { user_id: me.id, limit: 1 }).catch(() => null)
   brand.logo = photos?.photos?.[0]?.at(-1)?.file_id ?? null // largest size of the current avatar
   console.log(`@${me.username} running, owner chat ${OWNER ?? '(unset: send /start to get your id)'}, logo ${brand.logo ? 'yes' : 'no'}`)
+  // Paid reports survive restarts: keep watching jobs that were paid but not delivered.
+  for (const job of analyst.loadJobs().filter((j) => !j.delivered)) watchJob(OWNER, job).catch((e) => console.error('job', e.message))
   let running = false // one runner pass at a time; a slow swap must not start a second one
   setInterval(async () => {
     if (running) return
