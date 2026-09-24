@@ -1,5 +1,5 @@
 {
- "recordedAt": "2026-09-24T11:15:18.215Z",
+ "recordedAt": "2026-09-24T11:25:25.613Z",
  "list": {
   "code": "000000",
   "message": null,
@@ -332,23 +332,23 @@
     "symbol": "MSTRon",
     "ticker": "MSTR",
     "tokenInfo": {
-     "price": "159.204286",
+     "price": "159.395",
      "priceHigh24h": "169.37",
      "priceLow24h": "155.945",
-     "priceChange24h": "-7.995714",
-     "priceChangePct24h": "-4.78212559808612440",
+     "priceChange24h": "-7.065",
+     "priceChangePct24h": "-4.24426288597861348",
      "totalHolders": "1782",
      "sharesMultiplier": "1",
-     "volume24h": "3384500529.12636288",
-     "marketCap": "21620481.285772220531670962413894",
-     "fdv": "21620481.285772220531670962413894",
+     "volume24h": "3387261479.60820542",
+     "marketCap": "21646380.892946959302626394455",
+     "fdv": "21646380.892946959302626394455",
      "circulatingSupply": "135803.387138536085213629",
      "maxSupply": "135803.387138536085213629",
      "bnTrader": "1611",
      "bnHolder": "408"
     },
     "stockInfo": {
-     "price": "159.36",
+     "price": "159.49",
      "priceHigh52w": "365.21",
      "priceLow52w": "81.81",
      "volume": "21238080.629558",
@@ -403,23 +403,23 @@
     "symbol": "NVDAon",
     "ticker": "NVDA",
     "tokenInfo": {
-     "price": "223.48467543688291636",
+     "price": "223.492689158873284278",
      "priceHigh24h": "229.3066444628852",
      "priceLow24h": "222.7046728292487",
-     "priceChange24h": "-5.23195874446146364",
-     "priceChangePct24h": "-2.28752874192489158",
+     "priceChange24h": "-4.76065171990291572",
+     "priceChangePct24h": "-2.08568764057270274",
      "totalHolders": "57232",
      "sharesMultiplier": "1.0017152487959898",
-     "volume24h": "19973075506.922943745",
-     "marketCap": "15918365.72686227157735654206239964901275556",
-     "fdv": "15918365.72686227157735654206239964901275556",
-     "circulatingSupply": "71227.996710485748734221",
-     "maxSupply": "71227.996710485748734221",
-     "bnTrader": "22610",
-     "bnHolder": "6042"
+     "volume24h": "19974866452.741672965",
+     "marketCap": "15919339.150379217000039712015525738551721674",
+     "fdv": "15919339.150379217000039712015525738551721674",
+     "circulatingSupply": "71229.798210816216094783",
+     "maxSupply": "71229.798210816216094783",
+     "bnTrader": "22611",
+     "bnHolder": "6044"
     },
     "stockInfo": {
-     "price": "223.045",
+     "price": "223.065",
      "priceHigh52w": "236.54",
      "priceLow52w": "164.27",
      "volume": "89547290.936461",
@@ -474,23 +474,23 @@
     "symbol": "METAon",
     "ticker": "META",
     "tokenInfo": {
-     "price": "733.096562088759685192",
+     "price": "731.528140788530118488",
      "priceHigh24h": "765.6884369336835",
      "priceLow24h": "724.1476866620511",
-     "priceChange24h": "-8.40368957539891481",
-     "priceChangePct24h": "-1.13333603819262443",
+     "priceChange24h": "-9.21748361960358151",
+     "priceChangePct24h": "-1.24435208469418664",
      "totalHolders": "2223",
      "sharesMultiplier": "1.002826918305349555",
-     "volume24h": "22519985821.5648717",
-     "marketCap": "1589329.411781557177088870383301705236013072",
-     "fdv": "1589329.411781557177088870383301705236013072",
+     "volume24h": "22480164715.399454357676",
+     "marketCap": "1585929.125609954978239392099851363917845808",
+     "fdv": "1585929.125609954978239392099851363917845808",
      "circulatingSupply": "2167.967351058357681266",
      "maxSupply": "2167.967351058357681266",
      "bnTrader": "2766",
      "bnHolder": "331"
     },
     "stockInfo": {
-     "price": "730.475",
+     "price": "729.183333",
      "priceHigh52w": "763.9",
      "priceLow52w": "520.26",
      "volume": "30829235.526972",
@@ -552,7 +552,7 @@
      "priceChangePct24h": "0",
      "totalHolders": null,
      "sharesMultiplier": "1.002298265651938",
-     "volume24h": "22519985821.5648717",
+     "volume24h": "459346245",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": "10000",
@@ -561,14 +561,14 @@
      "bnHolder": null
     },
     "stockInfo": {
-     "price": "730.475",
-     "priceHigh52w": "763.9",
-     "priceLow52w": "520.26",
-     "volume": "30829235.526972",
+     "price": "729.183333",
+     "priceHigh52w": "763.9000",
+     "priceLow52w": "520.2600",
+     "volume": "636707",
      "averageVolume": "17438823",
      "avgVolume30d": "19751803",
      "sharesOutstanding": "2547506225",
-     "marketCap": "1895687385625",
+     "marketCap": "1895599382023.00",
      "turnoverRate": null,
      "amplitude": null,
      "priceToEarnings": "27.8400",
@@ -620,7 +620,7 @@
      "priceChangePct24h": "0",
      "totalHolders": null,
      "sharesMultiplier": "1",
-     "volume24h": "3384500529.12636288",
+     "volume24h": "115286394",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": "30946.962827468499022",
@@ -629,14 +629,14 @@
      "bnHolder": "0"
     },
     "stockInfo": {
-     "price": "159.36",
-     "priceHigh52w": "365.21",
-     "priceLow52w": "81.81",
-     "volume": "21238080.629558",
+     "price": "159.49",
+     "priceHigh52w": "365.2100",
+     "priceLow52w": "81.8100",
+     "volume": "727783",
      "averageVolume": "20335265",
      "avgVolume30d": "27521006",
      "sharesOutstanding": "397281660",
-     "marketCap": "64445706745",
+     "marketCap": "64439085252.00",
      "turnoverRate": null,
      "amplitude": null,
      "priceToEarnings": null,
@@ -688,7 +688,7 @@
      "priceChangePct24h": "0.94",
      "totalHolders": null,
      "sharesMultiplier": "1.0009180758490996",
-     "volume24h": "19973075506.922943745",
+     "volume24h": "153402813",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": "41161.399012988697772597",
@@ -697,14 +697,14 @@
      "bnHolder": "15"
     },
     "stockInfo": {
-     "price": "223.045",
-     "priceHigh52w": "236.54",
-     "priceLow52w": "164.27",
-     "volume": "89547290.936461",
+     "price": "223.065",
+     "priceHigh52w": "236.5400",
+     "priceLow52w": "164.2700",
+     "volume": "691761",
      "averageVolume": "163541063",
      "avgVolume30d": "121950017",
      "sharesOutstanding": "24147000000",
-     "marketCap": "5445309488049",
+     "marketCap": "5445389970000.00",
      "turnoverRate": null,
      "amplitude": null,
      "priceToEarnings": "28.4700",
@@ -749,26 +749,26 @@
     "symbol": "NVDAB",
     "ticker": "NVDA",
     "tokenInfo": {
-     "price": "223.32366063043907507475",
+     "price": "223.30364506596401891745",
      "priceHigh24h": null,
      "priceLow24h": null,
-     "priceChange24h": "-5.17402341680201666205",
-     "priceChangePct24h": "-2.264",
+     "priceChange24h": "-4.79372769177594967335",
+     "priceChangePct24h": "-2.102",
      "totalHolders": null,
      "sharesMultiplier": "1.000778223752807865",
-     "volume24h": "143382890",
+     "volume24h": "153402813",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": null,
      "maxSupply": null,
      "bnTrader": "13294",
-     "bnHolder": "9731"
+     "bnHolder": "9729"
     },
     "stockInfo": {
      "price": null,
      "priceHigh52w": "236.5400",
      "priceLow52w": "164.2700",
-     "volume": "645915",
+     "volume": "683223",
      "averageVolume": null,
      "avgVolume30d": "121950017",
      "sharesOutstanding": null,
@@ -817,14 +817,14 @@
     "symbol": "MSTRB",
     "ticker": "MSTR",
     "tokenInfo": {
-     "price": "159.49",
+     "price": "159.56",
      "priceHigh24h": null,
      "priceLow24h": null,
-     "priceChange24h": "-7.7",
-     "priceChangePct24h": "-4.606",
+     "priceChange24h": "-6.99",
+     "priceChangePct24h": "-4.197",
      "totalHolders": null,
      "sharesMultiplier": "1",
-     "volume24h": "112692073",
+     "volume24h": "115286394",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": null,
@@ -836,7 +836,7 @@
      "price": null,
      "priceHigh52w": "365.2100",
      "priceLow52w": "81.8100",
-     "volume": "700227",
+     "volume": "727783",
      "averageVolume": null,
      "avgVolume30d": "27521006",
      "sharesOutstanding": null,
@@ -885,14 +885,14 @@
     "symbol": "METAB",
     "ticker": "META",
     "tokenInfo": {
-     "price": "731.100635803131334965",
+     "price": "730.3902465169397060505",
      "priceHigh24h": null,
      "priceLow24h": null,
-     "priceChange24h": "-8.464638536874902277",
-     "priceChangePct24h": "-1.145",
+     "priceChange24h": "-8.5346769172036544235",
+     "priceChangePct24h": "-1.155",
      "totalHolders": null,
      "sharesMultiplier": "1.00054829041074495",
-     "volume24h": "438357904",
+     "volume24h": "459346245",
      "marketCap": null,
      "fdv": null,
      "circulatingSupply": null,
@@ -904,7 +904,7 @@
      "price": null,
      "priceHigh52w": "763.9000",
      "priceLow52w": "520.2600",
-     "volume": "602148",
+     "volume": "627708",
      "averageVolume": null,
      "avgVolume30d": "19751803",
      "sharesOutstanding": null,
@@ -1076,75 +1076,89 @@
  },
  "quotes": {
   "0x7313ea16493b2f55054df0131a3a14b043ec8992": {
-   "success": false,
-   "error": {
-    "code": 10003002,
-    "name": "SESSION_EXPIRED",
-    "message": "Please log in first."
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "MSTRon",
+    "toCoinAmount": "0.626824321401445861",
+    "slippage": 0.005
    }
   },
   "0xa9ee28c80f960b889dfbd1902055218cba016f75": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "NVDAon",
+    "toCoinAmount": "0.447752357767745463",
+    "slippage": 0.005
    }
   },
   "0xd7df5863a3e742f0c767768cdfcb63f09e0422f6": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "METAon",
+    "toCoinAmount": "0.136895131602252689",
+    "slippage": 0.005
    }
   },
   "0x96702be57cd9777f835117a809c7124fe4ec989a": {
    "success": false,
    "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+    "code": 100,
+    "name": "SERVICE_ERROR",
+    "message": "No liquidity available, please try again later."
    }
   },
   "0xae2f842ef90c0d5213259ab82639d5bbf649b08e": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "MSTRx",
+    "toCoinAmount": "0.00000002402461563",
+    "slippage": 0.01
    }
   },
   "0xc845b2894dbddd03858fd2d643b4ef725fe0849d": {
    "success": false,
    "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+    "code": 100,
+    "name": "SERVICE_ERROR",
+    "message": "No liquidity available, please try again later."
    }
   },
   "0x02fca66c1d1afb4e2a7884261eb00f63598a7436": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "NVDAB",
+    "toCoinAmount": "0.44815908570075882",
+    "slippage": 0.01
    }
   },
   "0xe87afb3076aeb0f9b14e368de8145ae6a2826a14": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "MSTRB",
+    "toCoinAmount": "0.626662230358194238",
+    "slippage": 0.01
    }
   },
   "0x7425889fe94f9d693e8daefe88bcced6acfef4c0": {
-   "success": false,
-   "error": {
-    "code": 10003000,
-    "name": "NOT_LOGGED_IN",
-    "message": "Not logged in"
+   "success": true,
+   "data": {
+    "fromCoinSymbol": "USDT",
+    "fromCoinAmount": "100",
+    "toCoinSymbol": "METAB",
+    "toCoinAmount": "0.136974725229394799",
+    "slippage": 0.01
    }
   }
  }
