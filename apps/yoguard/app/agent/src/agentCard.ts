@@ -31,8 +31,10 @@ const NEGOTIATE: AgentSkill = {
     "terms keys are REQUIRED) and receive a " +
     "wallet-signed price quote (price, currency, negotiation_hash, provider_sig). " +
     "Anchor the returned envelope on-chain via createJob + fund, then send the " +
-    "`notify_funded` skill with the job_id to request delivery.",
-  tags: ["erc8183", "negotiation", "bnb-chain"],
+    "`notify_funded` skill with the job_id to request delivery. " +
+    'For a deterministic verdict set task_description to JSON: {"ticker":"NVDA","usdt":100,' +
+    '"quotes":[{"token":"0x…","toCoinAmount":"0.449"}]}; prose gets an LLM explanation.',
+  tags: ["erc8183", "negotiation", "bnb-chain", "tokenized-stocks", "rwa", "trade-safety"],
   inputModes: ["application/json"],
   outputModes: ["application/json"],
 };
@@ -107,7 +109,7 @@ export function buildAgentCard(
   }
   return {
     name,
-    description: `ERC-8183 seller agent (${name}) — negotiate + notify_funded over A2A.`,
+    description: `yoguard (${name}): checks tokenized-stock swap quotes on BSC (Ondo, xStocks, bStocks) against the real stock price before you trade — flags ~0-output quotes, off-reference prices and paused assets, picks the safest token. Paid per check via ERC-8183.`,
     // main.ts overwrites this with $AGENTCORE_RUNTIME_URL at boot.
     // Local-dev fallback: a client-routable localhost URL (not the 0.0.0.0
     // bind address). Host via AGENT_HOST (default localhost); port via the
