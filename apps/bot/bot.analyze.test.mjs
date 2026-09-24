@@ -60,9 +60,10 @@ test('a failed but retryable job is resumed for free and still delivered', async
   assert.equal(signs().length, n, 'resume never signs')
 })
 
-test("a stranger can't trigger a paid analysis", async () => {
-  const n = sc.calls().filter((c) => c[0] === 'x402-payment').length
+test("a stranger sees the x402 offer but gets no Pay button and nothing is signed", async () => {
+  const n = signs().length
   await onMessage({ chat: { id: 7 }, text: '/analyze NVDA' })
-  assert.match(texts()[0], /private/)
-  assert.equal(sc.calls().filter((c) => c[0] === 'x402-payment').length, n)
+  assert.match(texts()[0], /Price: <b>0\.1 USDT<\/b>[\s\S]*owner's wallet only/)
+  assert.equal(sent[0].reply_markup, undefined)
+  assert.equal(signs().length, n)
 })
