@@ -129,10 +129,10 @@ async function showPortfolio(chat) {
 async function sellOffer(chat, ticker, amount = 'all') {
   const s = await scanSell(ticker, amount)
   const m = await stockMeta(s.row.t)
-  if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
+  if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.doneButtons })
   const id = newId()
   pending.set(id, { cmd: '/sell', ticker, amount, at: Date.now() })
-  return card(chat, ui.sellCard(s, { ask: true, company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.qty, s.row.t.symbol) })
+  return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.usdtOut) })
 }
 
 export async function onMessage(msg) {
@@ -236,11 +236,16 @@ export async function onCallback(q) {
   const owner = String(chat) === OWNER
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
-  if (['home', 'oth', 'stk', 'pf', 'sl'].includes(action)) {
+  if (['home', 'oth', 'stk', 'why', 'pf', 'sl'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id })
     if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner) })
     if (action === 'oth') return say(chat, ui.askTicker)
     if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+    if (action === 'why') { // the full provider comparison behind the simple card
+      if (!owner && !publicAllowed(chat)) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+      const s = await scan(id, 10)
+      return say(chat, ui.quoteCard(s), { reply_markup: ui.whyButtons(id) })
+    }
     if (!owner) return say(chat, ui.ownerOnly)
     return action === 'pf' ? showPortfolio(chat) : sellOffer(chat, id)
   }
@@ -289,18 +294,18 @@ export async function onCallback(q) {
     const s = await scanSell(p.ticker, p.amount) // re-check right before trading
     const m = await stockMeta(s.row.t)
     if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
-    const r = await executeSell(s.row.t, s.qty, (orderId) => say(chat, ui.submitting(`${s.qty} ${s.row.t.symbol}`, 'USDT', orderId)))
-    if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
-    return card(chat, ui.sellReceipt({ ...s, company: m?.company, got: r.got ?? s.usdtOut, tx: r.tx, orderId: r.orderId }), { photo: m?.photo ?? brand.logo })
+    const r = await executeSell(s.row.t, s.qty, () => say(chat, ui.selling(p.ticker)))
+    if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId), { reply_markup: ui.doneButtons })
+    return card(chat, ui.sellReceipt({ ...s, company: m?.company, got: r.got ?? s.usdtOut, tx: r.tx }), { photo: m?.photo ?? brand.logo, reply_markup: ui.doneButtons })
   }
 
   // Re-run the guard right before trading: the quote the user saw may have moved.
   const s = await scan(p.ticker, p.usdt)
   if (!s.best) return say(chat, ui.quoteCard(s))
-  const r = await execute(s.best.t, p.usdt, (orderId) => say(chat, ui.submitting(`${p.usdt} USDT`, s.best.t.symbol, orderId)))
-  if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId))
+  const r = await execute(s.best.t, p.usdt, () => say(chat, ui.buying(p.usdt, p.ticker)))
+  if (r.status !== 'FINISHED') return say(chat, ui.stillPending(r.orderId), { reply_markup: ui.doneButtons })
   const m = await stockMeta(s.best.t)
-  return card(chat, ui.receipt({ ticker: p.ticker, company: m?.company, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx, orderId: r.orderId }), { photo: m?.photo ?? brand.logo })
+  return card(chat, ui.receipt({ ticker: p.ticker, company: m?.company, usdt: p.usdt, ref: s.ref, best: s.best, got: r.got ?? s.best.got, tx: r.tx }), { photo: m?.photo ?? brand.logo, reply_markup: ui.doneButtons })
 }
 
 async function main() {
