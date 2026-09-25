@@ -1,0 +1,19 @@
+---
+import { findings, links } from '../data/content'
+---
+<section class="block" id="findings">
+  <p class="kicker">What we measured</p>
+  <h2>Tokenized stocks on BSC, <strong>in practice</strong></h2>
+  <div class="findings">
+    {findings.map((f) => (
+      <div class="card finding">
+        <span class={`tag ${f.tone}`}>{f.tag}</span>
+        <h3>{f.title}</h3>
+        <p>
+          {f.body}
+          {f.tone === 'info' && <> <a href={links.dxLog} target="_blank" rel="noopener" class="inline-link">Read the log ↗</a></>}
+        </p>
+      </div>
+    ))}
+  </div>
+</section>

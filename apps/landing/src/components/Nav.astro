@@ -1,0 +1,32 @@
+---
+import { links } from '../data/content'
+---
+<nav>
+  <a class="nav-logo" href="/"><img src="/yo.png" alt="yostocks logo" width="28" height="28" />yostocks</a>
+  <button class="menu-toggle" aria-label="Menu" aria-expanded="false"><span></span><span></span></button>
+  <div class="nav-menu">
+    <ul class="nav-links">
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#proof">Mainnet proof</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a class="btn-login" href={links.repo} target="_blank" rel="noopener">GitHub</a>
+      <a class="btn-signup" href={links.bot} target="_blank" rel="noopener">Open the bot</a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('.menu-toggle')!
+  const menu = document.querySelector<HTMLElement>('.nav-menu')!
+  toggle.addEventListener('click', () => {
+    const open = toggle.classList.toggle('active')
+    menu.classList.toggle('active', open)
+    toggle.setAttribute('aria-expanded', String(open))
+    document.body.style.overflow = open ? 'hidden' : ''
+  })
+  menu.querySelectorAll('a').forEach((a) =>
+    a.addEventListener('click', () => { if (menu.classList.contains('active')) toggle.click() }),
+  )
+</script>

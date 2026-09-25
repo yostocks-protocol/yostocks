@@ -1,0 +1,25 @@
+<section class="block" id="problem">
+  <div class="two-col">
+    <div>
+      <p class="kicker">The problem</p>
+      <h2>One stock. Three tokens.<br /><strong>Not the same trade.</strong></h2>
+      <p class="lead">
+        NVIDIA trades on BSC as <code>NVDAon</code>, <code>NVDAx</code> and <code>NVDAB</code>. On mainnet we watched a wallet quote come back
+        <code>success: true</code> for MSTRx while paying out <b>0.000000024 tokens for 100 USDT</b>, about $4.16 billion per share.
+        An agent that trusts “success” loses the whole order. yostocks prices every quote per share and trades only what passes.
+      </p>
+    </div>
+    <div class="terminal" role="img" aria-label="yostocks quote output for MSTR">
+      <div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="t-dim">$</span> yo quote MSTR 100
+
+MSTR · 100 USDT · reference <b>$158.82</b>/share
+
+<span class="t-good">✓</span> Ondo     MSTRon   $159.22/share  <span class="t-dim">(+0.25%)</span>
+<span class="t-bad">✗</span> xStocks  MSTRx    <span class="t-bad">quote returns ~0 tokens</span>
+<span class="t-best">★ bStocks  MSTRB    $159.16/share  (+0.21%)</span>
+
+<span class="t-dim">best:</span> MSTRB → 0.628311 tokens</pre>
+    </div>
+  </div>
+</section>
