@@ -110,32 +110,34 @@ test('stranger: home without My stocks, stock card without Buy, portfolio/sell b
   await tap('stk:META', 77) // first card for this chat
   const n = swaps().length
   await tap('stk:NVDA', 77)
-  assert.match(texts().at(-1), /One price check every 10 seconds/)
+  assert.match(texts().at(-1), /try again in a few seconds/)
   await tap('pf', 77)
   await tap('sl:NVDA', 77)
-  assert.ok(texts().slice(-2).every((t) => /Connect your Binance wallet to buy or sell/.test(t)))
+  assert.ok(texts().slice(-2).every((t) => /Connect Binance first/.test(t)))
   await onMessage({ chat: { id: 78 }, text: 'nvda' })
   assert.ok(!kb().some((b) => b.text.startsWith('Buy')))
   assert.equal(swaps().length, n)
 })
 
-test('any user: Connect wallet → approve in Binance → buys and My stocks run on their own wallet; Disconnect', async () => {
+test('any user: tap a stock → Connect Binance → approve → back on that stock with Buy; trades run on their own wallet', async () => {
   const U = 555
   const dir = `@${U}`
   sc.set({ quotes: quotes(10), address: '0xUserWallet', wallets: {} })
   await onMessage({ chat: { id: U }, text: '/start' })
   assert.ok(!kb().some((b) => b.text === '💼 My stocks'))
-  await tap(button('🔗 Connect my Binance wallet'), U)
-  const qr = sent.find((s) => s.method === 'sendPhoto' && /Connect your Binance wallet/.test(s.caption))
+  await tap('stk:NVDA', U)
+  assert.ok(!kb().some((b) => b.text.startsWith('Buy')), 'no Buy before connecting')
+  await tap(button('🔗 Connect Binance to buy'), U)
+  const qr = sent.find((s) => s.method === 'sendPhoto' && /Connect Binance/.test(s.caption))
   assert.match(qr.caption, /<b>123456<\/b>/, 'pairing code shown')
   assert.match(qr.photo, /^https:\/\/chart\.test\/qr\?.*uni-qr/, 'QR of the sign-in link')
   assert.equal(qr.reply_markup.inline_keyboard[0][0].url, 'https://app.binance.com/uni-qr/test')
-  assert.match(texts().at(-1), /Wallet connected[\s\S]*0xUserWallet/)
+  assert.ok(texts().some((t) => /Connected!<\/b> You have \$1000\.00 to spend/.test(t)))
+  assert.match(texts().at(-1), /NVIDIA/, 'back on the stock they wanted')
   const mine = () => sc.calls().filter((c) => c.at(-1) === dir)
-  assert.deepEqual(mine().map((c) => c.slice(0, 2).join(' ')), ['auth signin', 'auth verify', 'wallet address'], 'sign-in ran in the user dir')
+  assert.deepEqual(new Set(mine().slice(0, 4).map((c) => c.slice(0, 2).join(' '))), new Set(['auth signin', 'auth verify', 'wallet address', 'wallet balance']), 'sign-in ran in the user dir')
 
   // Buy on the user's wallet, not the owner's.
-  await onMessage({ chat: { id: U }, text: 'nvda' })
   await tap(button('Buy $10'), U)
   assert.match(texts().at(-1), /Done! You bought/)
   assert.equal(swaps().at(-1).at(-1), dir, 'swap signed by the user session')
@@ -150,19 +152,19 @@ test('any user: Connect wallet → approve in Binance → buys and My stocks run
 
   await tap('home', U)
   await tap(button('🔌 Disconnect'), U)
-  assert.match(texts().at(-1), /Wallet disconnected/)
+  assert.match(texts().at(-1), /Disconnected/)
   assert.equal(mine().at(-1).slice(0, 2).join(' '), 'auth signout')
   await tap('pf', U)
-  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/)
+  assert.match(texts().at(-1), /Connect Binance first/)
 })
 
 test('connect: an expired or rejected code leaves the user unconnected', async () => {
   const U = 556
   sc.set({ verify: { success: false, error: { code: 10002004, name: 'AUTH_REJECTED', message: 'QR code does not exist or expired' } } })
   await tap('cw', U)
-  assert.match(texts().at(-1), /wasn't connected/)
+  assert.match(texts().at(-1), /Not connected/)
   await tap('pf', U)
-  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/)
+  assert.match(texts().at(-1), /Connect Binance first/)
 })
 
 test('connect is refused in groups: every member could use the wallet', async () => {
@@ -176,13 +178,26 @@ test('a connected user whose session died is unlinked and asked to reconnect, no
   const U = 557
   sc.set({ quotes: quotes(10) })
   await tap('cw', U)
-  assert.match(texts().at(-1), /Wallet connected/)
+  assert.match(texts().at(-1), /Connected!/)
   sc.set({ quotes: quotes(10), wallets: {}, auth: 'SESSION_EXPIRED' })
   await tap('pf', U)
-  assert.match(texts().at(-1), /Your wallet session ended/)
+  assert.match(texts().at(-1), /connect Binance again/)
   assert.ok(!texts().at(-1).includes('baw'))
-  assert.ok(kb().some((b) => b.text === '🔗 Connect my Binance wallet'))
+  assert.ok(kb().some((b) => b.text === '🔗 Connect Binance to buy'))
   sc.set({ quotes: quotes(10) })
   await tap('pf', U)
-  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/, 'unlinked')
+  assert.match(texts().at(-1), /Connect Binance first/, 'unlinked')
+})
+
+test('empty wallet after connecting: where to send USDT; Buy without enough USDT says so and trades nothing', async () => {
+  const U = 558
+  sc.set({ quotes: quotes(10), address: '0xUserWallet', balances: [] })
+  await tap('cw', U)
+  assert.match(texts().at(-1), /Now add USDT[\s\S]*BNB Smart Chain[\s\S]*<code>0xUserWallet<\/code>/)
+  sc.set({ quotes: quotes(10), address: '0xUserWallet', balances: [{ symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '3', value: '3' }] })
+  await onMessage({ chat: { id: U }, text: 'nvda' })
+  const n = swaps().length
+  await tap(button('Buy $5'), U)
+  assert.match(texts().at(-1), /Not enough USDT\.<\/b> You have \$3\.00, this needs \$5\.00[\s\S]*0xUserWallet/)
+  assert.equal(swaps().length, n)
 })

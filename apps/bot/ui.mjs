@@ -16,14 +16,13 @@ const shares = (n) => { const x = Number(n); return x >= 1 ? x.toFixed(2) : x.to
 const vs = (d) => (Math.abs(d) < 0.005 ? 'at the stock price' : `${Math.abs(d).toFixed(2)}% ${d > 0 ? 'above' : 'below'} the stock price`)
 const home$ = { text: '🏠 Home', callback_data: 'home' }
 const mine$ = { text: '💼 My stocks', callback_data: 'pf' }
-const connect$ = { text: '🔗 Connect my Binance wallet', callback_data: 'cw' }
+const connect$ = { text: '🔗 Connect Binance to buy', callback_data: 'cw' }
 export const doneButtons = { inline_keyboard: [[mine$, home$]] }
 
 export const home = (owner) => [
   '👋 <b>Buy US stocks with USDT</b>',
   'Pick one, or type any ticker (like <code>AMD</code>).',
   'I only buy when the price matches the real stock price.',
-  ...(owner ? [] : ['', '<i>Connect your Binance wallet to buy. Until then you can look around.</i>']),
 ].join('\n')
 /** canTrade: owner or a connected wallet. linked: a connected (non-owner) user, who also gets Disconnect. */
 export const homeButtons = (canTrade, linked = false) => ({
@@ -35,20 +34,20 @@ export const homeButtons = (canTrade, linked = false) => ({
 
 // ---- connect your own Agentic Wallet ----
 export const connect = ({ pairingCode }) => [
-  '🔗 <b>Connect your Binance wallet</b>',
-  '',
-  '1. Tap <b>Open Binance</b> below, or scan this QR code with the Binance app.',
-  `2. Check the code says <b>${esc(pairingCode)}</b> and approve.`,
-  '3. Set how much the agent may spend. You can change or revoke it in the app anytime.',
-  '',
-  '<i>This link works for 5 minutes. Your money stays in your wallet.</i>',
+  '🔗 <b>Connect Binance</b>',
+  `Tap <b>Open Binance</b> and approve. The app shows the code <b>${esc(pairingCode)}</b>.`,
+  '<i>On a computer? Scan this QR code with the Binance app.</i>',
 ].join('\n')
 export const connectButtons = (url) => ({ inline_keyboard: [[{ text: '📲 Open Binance', url }]] })
-export const connected = (address) => `✅ <b>Wallet connected</b>${address ? `\n<code>${esc(address)}</code>` : ''}\n\nPick a stock to buy. Your trades use your own wallet and its spending limit.`
-export const connectFailed = "⌛ The wallet wasn't connected (the code expired or was rejected). Nothing changed."
-export const disconnected = '🔌 Wallet disconnected. You can connect again anytime.'
-export const sessionEnded = '🔐 <b>Your wallet session ended.</b>\nIt lasts up to 7 days, and signing in somewhere else ends it too. Connect again to keep trading.'
-export const connectFirst = '🔒 Connect your Binance wallet to buy or sell. You can look at any stock without it.'
+const addFunds = (address) => `Send USDT on <b>BNB Smart Chain</b> to:\n<code>${esc(address)}</code>\n<i>Tap the address to copy it.</i>`
+/** usdt: spendable USDT on BSC, or null if unknown. */
+export const connected = (address, usdt) =>
+  usdt == null || usdt >= AMOUNTS[0] || !address ? `✅ <b>Connected!</b>${usdt ? ` You have ${usd(usdt)} to spend.` : ''}` : `✅ <b>Connected!</b> Now add USDT to start.\n${addFunds(address)}`
+export const notEnough = (need, have, address) => `💸 <b>Not enough USDT.</b> You have ${usd(have)}, this needs ${usd(need)}.${address ? `\n${addFunds(address)}` : ''}`
+export const connectFailed = '⌛ Not connected: the code expired. Tap Connect to try again.'
+export const disconnected = '🔌 Disconnected.'
+export const sessionEnded = '🔐 <b>Please connect Binance again.</b>\nFor your safety the connection lasts up to 7 days.'
+export const connectFirst = '🔒 Connect Binance first. It takes a few seconds.'
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
 
@@ -63,9 +62,11 @@ export function stockCard({ ticker, ref, best }, { company, owner } = {}) {
   }
   return lines.join('\n')
 }
-export const stockButtons = (id, ticker, canBuy) => ({
+/** canBuy: amount buttons. guest: a good price but no wallet yet, so one Connect button that comes back to this stock. */
+export const stockButtons = (id, ticker, canBuy, guest = false) => ({
   inline_keyboard: [
     ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
+    ...(guest ? [[{ ...connect$, callback_data: `cw:${ticker}` }]] : []),
     [{ text: 'ℹ️ Why?', callback_data: `why:${ticker}` }, home$],
   ],
 })
@@ -104,7 +105,7 @@ export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostock
 export const SHORT_DESCRIPTION = 'Buy US stocks with USDT, only at the real price.'
 
 export const ownerOnly = "🔒 This is a demo: only the owner's wallet can buy or sell. Tap any stock to see its price."
-export const slowDown = (s) => `⏱ One price check every ${s} seconds in demo mode, please.`
+export const slowDown = () => '⏱ One moment, try again in a few seconds.'
 
 /** Guarded comparison of every provider for one ticker (output of scan()). */
 export function quoteCard({ ticker, usdt, ref, rows, best }, { ask = false, company } = {}) {

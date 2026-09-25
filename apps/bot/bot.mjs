@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { scan, execute, scanSell, executeSell, baw, wallet } from '../agent/yo.mjs'
+import { scan, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
@@ -134,7 +134,17 @@ async function showStock(chat, ticker, owner) {
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const id = newId()
   if (owner && s.best) pending.set(id, { chat, ticker: s.ticker, at: Date.now() })
-  return card(chat, ui.stockCard(s, { company: m?.company, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best) })
+  return card(chat, ui.stockCard(s, { company: m?.company, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
+}
+
+/** Spendable USDT on BSC (null if unknown) and the address to top up. */
+async function funds() {
+  const [bal, adr] = await Promise.all([baw('wallet', 'balance', '--binanceChainId', '56'), baw('wallet', 'address')])
+  assertSignedIn(bal, adr)
+  return {
+    usdt: bal.success ? Number(bal.data.find((b) => b.address?.toLowerCase() === USDT.toLowerCase())?.balance ?? 0) : null,
+    address: adr.data?.addresses?.find((a) => a.binanceChainId === '56')?.address,
+  }
 }
 
 async function showPortfolio(chat) {
@@ -154,7 +164,7 @@ async function sellOffer(chat, ticker, amount = 'all') {
 }
 
 /** Sign-in QR → user approves in the Binance app → verify (blocks up to 5 min) → linked. */
-async function connectWallet(chat) {
+async function connectWallet(chat, ticker) {
   if (connecting.has(chat)) return say(chat, ui.notice('Already waiting for your approval in the Binance app.'))
   const dir = walletDir(chat)
   mkdirSync(dir, { recursive: true, mode: 0o700 })
@@ -170,9 +180,11 @@ async function connectWallet(chat) {
       const v = await w('auth', 'verify', '--qrCodeId', s.data.qrCodeId)
       if (!v.success) return say(chat, ui.connectFailed, { reply_markup: ui.homeButtons(false) })
     }
-    const address = (await w('wallet', 'address')).data?.addresses?.find((a) => a.binanceChainId === '56')?.address
-    writeFileSync(join(dir, LINKED), JSON.stringify({ address, at: new Date().toISOString() }))
-    return say(chat, ui.connected(address), { reply_markup: ui.homeButtons(true, true) })
+    const f = await wallet.run(dir, funds)
+    writeFileSync(join(dir, LINKED), JSON.stringify({ address: f.address, at: new Date().toISOString() }))
+    // Straight back to the stock they wanted, now with Buy buttons.
+    if (ticker && isTicker(ticker)) return say(chat, ui.connected(f.address, f.usdt)).then(() => asUser(chat, () => showStock(chat, ticker, true)))
+    return say(chat, ui.connected(f.address, f.usdt), { reply_markup: ui.homeButtons(true, true) })
   } finally {
     connecting.delete(chat)
   }
@@ -265,7 +277,7 @@ async function onPublic(chat, text = '') {
   const bare = !name?.startsWith('/') && isTicker(name)
   if (['/buy', '/sell', '/portfolio'].includes(name)) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
   if (!['/quote', '/analyze'].includes(name) && !bare) return ['/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.home(false), { reply_markup: ui.homeButtons(false) })
-  if (!publicAllowed(chat)) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+  if (!publicAllowed(chat)) return say(chat, ui.slowDown())
   if (bare) return showStock(chat, name, false)
   if (name === '/analyze') {
     const ticker = arg?.toUpperCase()
@@ -306,12 +318,12 @@ async function callback(q, chat) {
     await tg('answerCallbackQuery', { callback_query_id: q.id })
     if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner, linked(chat)) })
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
-    if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : publicAllowed(chat) ? connectWallet(chat) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+    if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
     if (action === 'dw') return linked(chat) ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
     if (action === 'oth') return say(chat, ui.askTicker)
-    if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+    if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown())
     if (action === 'why') { // the full provider comparison behind the simple card
-      if (!owner && !publicAllowed(chat)) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+      if (!owner && !publicAllowed(chat)) return say(chat, ui.slowDown())
       const s = await scan(id, 10)
       return say(chat, ui.quoteCard(s), { reply_markup: ui.whyButtons(id) })
     }
@@ -370,6 +382,8 @@ async function callback(q, chat) {
     return card(chat, ui.sellReceipt({ ...s, company: m?.company, got: r.got ?? s.usdtOut, tx: r.tx }), { photo: m?.photo ?? brand.logo, reply_markup: ui.doneButtons })
   }
 
+  const f = await funds()
+  if (f.usdt != null && f.usdt < p.usdt) return say(chat, ui.notEnough(p.usdt, f.usdt, f.address), { reply_markup: ui.doneButtons })
   // Re-run the guard right before trading: the quote the user saw may have moved.
   const s = await scan(p.ticker, p.usdt)
   if (!s.best) return say(chat, ui.quoteCard(s))

@@ -39,7 +39,7 @@ const buttonData = () => sent.findLast((s) => s.reply_markup)?.reply_markup.inli
 test('stranger: /buy, /sell and strategies are owner-only; wallet untouched', async () => {
   const n = sc.calls().length
   for (const t of ['/buy NVDA 10', '/sell NVDA', '/strategy buy NVDA daily', '/stop x']) await onMessage(msg(t, 7))
-  assert.ok(texts().slice(0, 2).every((t) => /Connect your Binance wallet to buy or sell/.test(t)))
+  assert.ok(texts().slice(0, 2).every((t) => /Connect Binance first/.test(t)))
   assert.ok(texts().slice(2).every((t) => /only the owner's wallet/.test(t)), 'strategies stay owner-only')
   assert.equal(sc.calls().length, n)
 })
@@ -48,13 +48,13 @@ test('stranger (demo mode): /start shows demo help, /quote works on live data wi
   sc.set({ quotes: goodNvda(10) })
   const swapsBefore = swaps().length
   await onMessage(msg('/start', 8))
-  assert.match(texts()[0], /Connect your Binance wallet to buy/)
+  assert.ok(sent[0].reply_markup.inline_keyboard.flat().some((b) => b.text === '🔗 Connect Binance to buy'), 'guests get a Connect button')
   await onMessage(msg('/quote NVDA 10', 8))
   assert.match(texts()[1], /⭐ <b>bStocks · NVDAB<\/b>/)
   assert.equal(sent[1].reply_markup, undefined, 'no trade buttons for strangers')
   assert.equal(swaps().length, swapsBefore)
   await onMessage(msg('/quote NVDA 10', 8))
-  assert.match(texts()[2], /One price check every 10 seconds/)
+  assert.match(texts()[2], /try again in a few seconds/)
   const now = Date.now()
   t.mock.method(Date, 'now', () => now + 11_000)
   await onMessage(msg('/quote NVDA 10', 8))
