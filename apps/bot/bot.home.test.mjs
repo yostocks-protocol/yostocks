@@ -164,3 +164,25 @@ test('connect: an expired or rejected code leaves the user unconnected', async (
   await tap('pf', U)
   assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/)
 })
+
+test('connect is refused in groups: every member could use the wallet', async () => {
+  const n = sc.calls().length
+  await tap('cw', -1001234)
+  assert.match(texts().at(-1), /private chat/)
+  assert.equal(sc.calls().length, n, 'no sign-in started')
+})
+
+test('a connected user whose session died is unlinked and asked to reconnect, not told to run baw', async () => {
+  const U = 557
+  sc.set({ quotes: quotes(10) })
+  await tap('cw', U)
+  assert.match(texts().at(-1), /Wallet connected/)
+  sc.set({ quotes: quotes(10), wallets: {}, auth: 'SESSION_EXPIRED' })
+  await tap('pf', U)
+  assert.match(texts().at(-1), /Your wallet session ended/)
+  assert.ok(!texts().at(-1).includes('baw'))
+  assert.ok(kb().some((b) => b.text === '🔗 Connect my Binance wallet'))
+  sc.set({ quotes: quotes(10) })
+  await tap('pf', U)
+  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/, 'unlinked')
+})
