@@ -6,15 +6,14 @@ import * as ui from './ui.mjs'
 const best = { t: { type: 3, symbol: 'NVDAB' }, ok: true, multiplier: 1.000778223752807865, perShare: 222.93, dev: -0.12, got: 0.022412 }
 const first = { ticker: 'NVDA', usdt: 5, ref: 223.19, best, got: '0.022409841731513969', tx: 'https://bscscan.com/tx/0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9', orderId: '26092400001912775002' }
 
-test('receipt: amount, average price per share (multiplier applied) and gap to the real price', () => {
+test('receipt in plain words: name, shares (multiplier applied), price per share vs the real price, tx link', () => {
   const r = ui.receipt(first)
-  assert.match(r, /<b>0\.022410 NVDAB<\/b> · NVDA on bStocks/)
-  assert.match(ui.receipt({ ...first, company: 'Nvidia Corp' }), /<b>0\.022410 NVDAB<\/b> · Nvidia Corp \(NVDA\) on bStocks/)
-  assert.match(r, /Paid: <b>5\.00 USDT<\/b>/)
-  assert.match(r, /Avg price: <b>\$222\.94<\/b> \/ share \(−0\.11% vs NVDA\)/) // 5 / (0.02241 × 1.000778)
-  assert.match(r, /<a href="https:\/\/bscscan\.com\/tx\/0xfe3a3f/)
-  assert.match(r, /<code>Order 26092400001912775002<\/code>/)
-  assert.ok(r.length < 1024)
+  assert.match(r, /✅ <b>Done! You bought NVIDIA<\/b>/)
+  assert.match(r, /0\.0224 shares for <b>\$5\.00<\/b>/)
+  assert.match(r, /\$222\.94 per share, 0\.11% below the stock price/) // 5 / (0.02241 × 1.000778)
+  assert.match(r, /<a href="https:\/\/bscscan\.com\/tx\/0xfe3a3f[^"]*">See the transaction/)
+  assert.ok(!/NVDAB|bStocks|USDT|Order/.test(r), 'no jargon in the receipt')
+  assert.match(ui.receipt({ ...first, ticker: 'AMD', company: 'Advanced Micro Devices Inc' }), /You bought Advanced Micro Devices</)
 })
 
 test('quote card puts the best route first, then safe, then rejected; escapes provider text', () => {
@@ -52,19 +51,24 @@ test('command menu fits Telegram limits and matches what the bot handles', () =>
   assert.ok(ui.SHORT_DESCRIPTION.length <= 120)
 })
 
-test('sell card and sold receipt', () => {
+test('sell card, sell button and sold receipt in plain words', () => {
   const row = { t: { type: 3, symbol: 'NVDAB' }, multiplier: 1.000778223752807865 }
   const s = { ticker: 'NVDA', ref: 222.31, row, qty: '0.022409841731513969', usdtOut: 4.9889, ok: true, perShare: 222.45, dev: 0.06 }
-  const c = ui.sellCard(s, { ask: true, company: 'Nvidia Corp' })
-  assert.match(c, /<b>NVDA<\/b> · Nvidia Corp · sell/)
-  assert.match(c, /Selling <b>0\.022410 NVDAB<\/b> \(bStocks\)/)
-  assert.match(c, /Sell price <b>\$222\.45<\/b> \/ share · \+0\.06%/)
-  assert.match(c, /You receive ≈ <b>4\.9889 USDT<\/b>/)
-  assert.match(ui.sellCard({ ...s, ok: false, why: 'Please trade during <stock> market opening hours.' }), /⛔ <b>Not selling\.<\/b> <i>Please trade during &lt;stock&gt;/)
-  assert.equal(ui.sellButtons('x', s.qty, 'NVDAB').inline_keyboard[0][0].text, '✅ Sell 0.022410 NVDAB → USDT')
-  const r = ui.sellReceipt({ ...s, company: 'Nvidia Corp', got: '4.98', tx: 'https://bscscan.com/tx/0x5e11', orderId: 's-1' })
-  assert.match(r, /✅ <b>Sold<\/b>[\s\S]*<b>4\.9800 USDT<\/b> for 0\.022410 NVDAB\nNvidia Corp \(NVDA\) on bStocks/)
-  assert.match(r, /Avg price: <b>\$222\.05<\/b> \/ share \(−0\.12% vs NVDA\)/)
+  const c = ui.sellCard(s, { company: 'Nvidia Corp' })
+  assert.match(c, /<b>Sell NVIDIA\?<\/b>\n0\.0224 shares → about <b>\$4\.99<\/b>\n<i>That's 0\.06% above the stock price\.<\/i>/)
+  assert.match(ui.sellCard({ ...s, ok: false, why: 'Please trade during stock market opening hours.' }), /⚠️ <b>Can't sell NVIDIA right now\.<\/b>\nThis version can only be sold while the US stock market is open\./)
+  assert.equal(ui.sellButtons('x', s.usdtOut).inline_keyboard[0][0].text, '✅ Sell for ~$4.99')
+  const r = ui.sellReceipt({ ...s, got: '4.98', tx: 'https://bscscan.com/tx/0x5e11' })
+  assert.match(r, /✅ <b>Sold!<\/b> You got <b>\$4\.98<\/b>\nfor 0\.0224 NVIDIA shares\./)
+})
+
+test('stock card: name, price, one verdict line; details only behind Why?', () => {
+  const best = { t: { type: 3, symbol: 'NVDAB' }, ok: true, perShare: 225.97, dev: 0.02 }
+  const c = ui.stockCard({ ticker: 'NVDA', ref: 225.93, rows: [best], best }, { owner: true })
+  assert.match(c, /<b>NVIDIA<\/b> \(NVDA\)\n<b>\$225\.93<\/b> per share\n\n✅ <b>Good price right now<\/b>\n<i>Cheapest safe option: bStocks, 0\.02% above the stock price\.<\/i>\n\nHow much do you want to buy\?/)
+  assert.match(ui.stockCard({ ticker: 'NVDA', ref: 1, rows: [], best: undefined }, {}), /Not a good time to buy/)
+  assert.deepEqual(ui.stockButtons('i', 'NVDA', true).inline_keyboard.flat().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', 'ℹ️ Why?', '🏠 Home'])
+  assert.deepEqual(ui.homeButtons(true).inline_keyboard.flat().map((b) => b.text), ['NVIDIA', 'Tesla', 'Apple', 'Strategy', 'Meta', 'Google', 'S&P 500', 'Nasdaq 100', '💼 My stocks'])
 })
 
 test('market card: human summary from the real CMC payload, with a sentiment takeaway, no raw JSON', async () => {

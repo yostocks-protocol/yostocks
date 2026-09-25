@@ -39,7 +39,7 @@ const buttonData = () => sent.findLast((s) => s.reply_markup)?.reply_markup.inli
 test('stranger: /buy, /sell and strategies are owner-only; wallet untouched', async () => {
   const n = sc.calls().length
   for (const t of ['/buy NVDA 10', '/sell NVDA', '/strategy buy NVDA daily', '/stop x']) await onMessage(msg(t, 7))
-  assert.ok(texts().every((t) => /owner's wallet only/.test(t)))
+  assert.ok(texts().every((t) => /only the owner's wallet/.test(t)))
   assert.equal(sc.calls().length, n)
 })
 
@@ -47,13 +47,13 @@ test('stranger (demo mode): /start shows demo help, /quote works on live data wi
   sc.set({ quotes: goodNvda(10) })
   const swapsBefore = swaps().length
   await onMessage(msg('/start', 8))
-  assert.match(texts()[0], /Demo: trading is owner-only/)
+  assert.match(texts()[0], /Demo: you can look around; only the owner can buy/)
   await onMessage(msg('/quote NVDA 10', 8))
   assert.match(texts()[1], /⭐ <b>bStocks · NVDAB<\/b>/)
   assert.equal(sent[1].reply_markup, undefined, 'no trade buttons for strangers')
   assert.equal(swaps().length, swapsBefore)
   await onMessage(msg('/quote NVDA 10', 8))
-  assert.match(texts()[2], /One quote every 10 seconds/)
+  assert.match(texts()[2], /One price check every 10 seconds/)
   const now = Date.now()
   t.mock.method(Date, 'now', () => now + 11_000)
   await onMessage(msg('/quote NVDA 10', 8))
@@ -65,7 +65,7 @@ test('owner /start gets help; bad input gets usage', async () => {
   await onMessage(msg('/buy NVDA 99999'))
   await onMessage(msg('/quote'))
   const t = texts()
-  assert.match(t[0], /<b>yostocks<\/b>[\s\S]*Pick a stock/)
+  assert.match(t[0], /Buy US stocks with USDT[\s\S]*Pick one/)
   assert.match(t[1], /usage: \/buy NVDA 10 \(1–1000 USDT\)/)
   assert.match(t[2], /usage: \/quote/)
 })
@@ -102,8 +102,8 @@ test('/buy → Confirm re-runs the guard, swaps the best token once, reports the
   const s = swaps().at(-1)
   assert.equal(s[s.indexOf('--toToken') + 1], addr('NVDAB'))
   assert.ok(sent.some((x) => x.method === 'editMessageReplyMarkup'), 'buttons removed')
-  assert.match(texts().join('\n'), /⏳ <b>Order submitted<\/b> · 10 USDT → NVDAB[\s\S]*o-7/)
-  assert.match(texts().at(-1), /✅ <b>Order filled<\/b>[\s\S]*NVDAB<\/b> · Nvidia Corp \(NVDA\) on bStocks[\s\S]*Paid: <b>10\.00 USDT<\/b>[\s\S]*<a href="https:\/\/bscscan\.com\/tx\/0xfeed">View on BscScan/)
+  assert.match(texts().join('\n'), /⏳ Buying <b>\$10<\/b> of NVIDIA/)
+  assert.match(texts().at(-1), /✅ <b>Done! You bought NVIDIA<\/b>[\s\S]*shares for <b>\$10\.00<\/b>[\s\S]*<a href="https:\/\/bscscan\.com\/tx\/0xfeed">See the transaction/)
 
   await tap(yes) // double tap
   assert.equal(swaps().length, n + 1, 'second tap must not trade again')
@@ -159,7 +159,7 @@ test('FAILED order surfaces as an error, not a fill', async () => {
   sc.set({ quotes: goodNvda(10), orderStatus: 'FAILED' })
   await onMessage(msg('/buy NVDA 10'))
   await assert.rejects(tap(buttonData()[0]), /FAILED/)
-  assert.ok(!texts().some((t) => t.includes('Order filled')))
+  assert.ok(!texts().some((t) => t.includes('Done! You bought')))
 })
 
 test('provider text is HTML-escaped inside <pre>', async () => {
@@ -214,7 +214,7 @@ test('with a logo, receipts and /start go out as a photo with the text as captio
     assert.equal(sent[0].method, 'sendPhoto')
     assert.equal(sent[0].photo, 'LOGO_FILE_ID')
     assert.equal(sent[0].parse_mode, 'HTML')
-    assert.match(sent[0].caption, /<b>yostocks<\/b>/)
+    assert.match(sent[0].caption, /Buy US stocks with USDT/)
 
     sc.set({ quotes: goodNvda(10), swap: { success: true, data: { orderId: 'o-8' } }, orderStatus: 'FINISHED', txHash: '0xbeef' })
     await onMessage(msg('/buy NVDA 10'))
@@ -224,7 +224,7 @@ test('with a logo, receipts and /start go out as a photo with the text as captio
     const r = sent.at(-1)
     assert.equal(r.method, 'sendPhoto')
     assert.equal(r.photo, `https://bin.bnbstatic.com/logos/${addr('NVDAB')}.png`, 'receipt shows the stock bought')
-    assert.match(r.caption, /✅ <b>Order filled<\/b>/)
+    assert.match(r.caption, /✅ <b>Done! You bought NVIDIA<\/b>/)
     assert.ok(r.caption.length <= 1024, 'Telegram caption limit')
   } finally { brand.logo = null }
 })
@@ -260,7 +260,7 @@ test('/sell NVDA → card with Sell button → Confirm re-checks, swaps NVDAB �
     recent: [{ orderId: 's-9', status: 'FINISHED', fromToken: addr('NVDAB'), fromTokenQty: HELD, toToken: USDT, toTokenActualQty: '4.98', txHash: '0x5e11' }] })
   const n = swaps().length
   await onMessage(msg('/sell NVDA'))
-  assert.match(texts()[0], /Selling <b>0\.022410 NVDAB<\/b> \(bStocks\)[\s\S]*You receive ≈/)
+  assert.match(texts()[0], /<b>Sell NVIDIA\?<\/b>[\s\S]*shares → about/)
   const [yes, no] = buttonData()
   assert.match(yes, /^sell:/)
   assert.match(no, /^no:/)
@@ -271,8 +271,8 @@ test('/sell NVDA → card with Sell button → Confirm re-checks, swaps NVDAB �
   assert.equal(s[s.indexOf('--fromToken') + 1], addr('NVDAB'))
   assert.equal(s[s.indexOf('--toToken') + 1].toLowerCase(), USDT)
   assert.equal(s[s.indexOf('--fromTokenQty') + 1], HELD)
-  assert.match(texts().join('\n'), /⏳ <b>Order submitted<\/b> · 0\.022409841731513969 NVDAB → USDT/)
-  assert.match(texts().at(-1), /✅ <b>Sold<\/b>[\s\S]*4\.9800 USDT[\s\S]*bscscan\.com\/tx\/0x5e11/)
+  assert.match(texts().join('\n'), /⏳ Selling your NVIDIA/)
+  assert.match(texts().at(-1), /✅ <b>Sold!<\/b> You got <b>\$4\.98<\/b>[\s\S]*bscscan\.com\/tx\/0x5e11/)
   await tap(yes)
   assert.equal(swaps().length, n + 1, 'double tap sells once')
 })
@@ -280,8 +280,8 @@ test('/sell NVDA → card with Sell button → Confirm re-checks, swaps NVDAB �
 test('/sell when Ondo is closed shows the reason and no Sell button', async () => {
   sc.set({ balances: holding('NVDAon', '0.01'), sellQuotes: { [addr('NVDAon')]: { success: false, error: { code: 316008, name: 'SERVICE_ERROR', message: 'Token NVDAon currently has no available liquidity. Please trade during stock market opening hours.' } } } })
   await onMessage(msg('/sell NVDA'))
-  assert.match(texts()[0], /Not selling\.[\s\S]*stock market opening hours/)
-  assert.equal(buttonData(), undefined)
+  assert.match(texts()[0], /Can't sell NVIDIA right now[\s\S]*only be sold while the US stock market is open/)
+  assert.ok(!(sent.findLast((x) => x.reply_markup)?.reply_markup.inline_keyboard.flat() ?? []).some((b) => b.text.startsWith('✅ Sell')), 'no Sell button')
 })
 
 test('/sell of something not held, and a stranger pressing Sell, never trade', async () => {
