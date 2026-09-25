@@ -113,8 +113,54 @@ test('stranger: home without My stocks, stock card without Buy, portfolio/sell b
   assert.match(texts().at(-1), /One price check every 10 seconds/)
   await tap('pf', 77)
   await tap('sl:NVDA', 77)
-  assert.ok(texts().slice(-2).every((t) => /only the owner's wallet/.test(t)))
+  assert.ok(texts().slice(-2).every((t) => /Connect your Binance wallet to buy or sell/.test(t)))
   await onMessage({ chat: { id: 78 }, text: 'nvda' })
   assert.ok(!kb().some((b) => b.text.startsWith('Buy')))
   assert.equal(swaps().length, n)
+})
+
+test('any user: Connect wallet → approve in Binance → buys and My stocks run on their own wallet; Disconnect', async () => {
+  const U = 555
+  const dir = `@${U}`
+  sc.set({ quotes: quotes(10), address: '0xUserWallet', wallets: {} })
+  await onMessage({ chat: { id: U }, text: '/start' })
+  assert.ok(!kb().some((b) => b.text === '💼 My stocks'))
+  await tap(button('🔗 Connect my Binance wallet'), U)
+  const qr = sent.find((s) => s.method === 'sendPhoto' && /Connect your Binance wallet/.test(s.caption))
+  assert.match(qr.caption, /<b>123456<\/b>/, 'pairing code shown')
+  assert.match(qr.photo, /^https:\/\/chart\.test\/qr\?.*uni-qr/, 'QR of the sign-in link')
+  assert.equal(qr.reply_markup.inline_keyboard[0][0].url, 'https://app.binance.com/uni-qr/test')
+  assert.match(texts().at(-1), /Wallet connected[\s\S]*0xUserWallet/)
+  const mine = () => sc.calls().filter((c) => c.at(-1) === dir)
+  assert.deepEqual(mine().map((c) => c.slice(0, 2).join(' ')), ['auth signin', 'auth verify', 'wallet address'], 'sign-in ran in the user dir')
+
+  // Buy on the user's wallet, not the owner's.
+  await onMessage({ chat: { id: U }, text: 'nvda' })
+  await tap(button('Buy $10'), U)
+  assert.match(texts().at(-1), /Done! You bought/)
+  assert.equal(swaps().at(-1).at(-1), dir, 'swap signed by the user session')
+
+  // The owner's offers are not the user's to take, and vice versa.
+  await tap('stk:NVDA')
+  const ownerBuy = button('Buy $5')
+  const n = swaps().length
+  await tap(ownerBuy, U)
+  assert.match(texts().at(-1), /expired/)
+  assert.equal(swaps().length, n)
+
+  await tap('home', U)
+  await tap(button('🔌 Disconnect'), U)
+  assert.match(texts().at(-1), /Wallet disconnected/)
+  assert.equal(mine().at(-1).slice(0, 2).join(' '), 'auth signout')
+  await tap('pf', U)
+  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/)
+})
+
+test('connect: an expired or rejected code leaves the user unconnected', async () => {
+  const U = 556
+  sc.set({ verify: { success: false, error: { code: 10002004, name: 'AUTH_REJECTED', message: 'QR code does not exist or expired' } } })
+  await tap('cw', U)
+  assert.match(texts().at(-1), /wasn't connected/)
+  await tap('pf', U)
+  assert.match(texts().at(-1), /Connect your Binance wallet to buy or sell/)
 })

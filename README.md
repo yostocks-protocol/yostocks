@@ -20,7 +20,10 @@ Telegram, in plain English if you like, and it executes through **Binance Agenti
 Press **Start** and tap a stock (NVDA, TSLA, AAPL, MSTR, META, GOOGL, SPY, QQQ) or just type a ticker. You get the
 real price, the best safe provider in one line, and why the others were skipped, on live mainnet data.
 
-Buying, selling, strategies and paid data run on the owner's wallet only.
+**Trade with your own wallet:** tap **🔗 Connect my Binance wallet**, open the link (or scan the QR code) in the
+Binance app and approve. From then on **Buy**, **Sell** and **💼 My stocks** (value, profit/loss and a PnL chart) run on
+your own Agentic Wallet, within the spending limit you set in the app. **🔌 Disconnect** signs the bot out.
+Strategies and paid data stay on the owner's wallet.
 
 ## What it does
 
@@ -139,7 +142,10 @@ actually tested: removing any one of them turns the suite red.
 
 ## Limits, honestly
 
-- The agent runs on the owner's Agentic Wallet session; sessions last up to 7 days (one lasted under 30 minutes, cause unknown).
+- Each connected wallet is a baw session stored on the bot's server (`/data/wallets/<chat id>`, mode 700). The user's
+  funds never leave their wallet, and the session can only spend within the limit set in the Binance app, which can
+  also revoke it. Sessions last up to 7 days, then the user connects again.
+- One agent session per wallet: connecting the same wallet elsewhere signs the bot out.
 - `/analyze` is paused until BNB's Stock Analyze Agent accepts Agentic Wallet payments (#29).
 - yoguard sells over ERC-8183 on testnet; paid x402 selling needs B402 merchant credentials whose application form is restricted to the organizer's Google Workspace.
 - Not financial advice. Built for BNB Hack: Tokenized Stocks Edition.

@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
-import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { scan, execute, scanSell, executeSell } from '../agent/yo.mjs'
+import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { scan, execute, scanSell, executeSell, baw, wallet } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
@@ -15,6 +15,13 @@ const TG_API = process.env.TELEGRAM_API ?? 'https://api.telegram.org'
 const OWNER = process.env.YO_OWNER_CHAT_ID // only this chat may use the wallet
 const QUOTE_TTL = 60_000 // a Confirm button older than this re-quotes instead of trading
 const DATA = process.env.YO_DATA ?? new URL('./data/strategies.json', import.meta.url).pathname
+
+// Anyone can connect their own Agentic Wallet: one baw session dir per Telegram chat. The owner keeps the default session.
+const WALLETS = process.env.YO_WALLETS ?? join(dirname(DATA), 'wallets')
+const walletDir = (chat) => join(WALLETS, String(Number(chat)))
+const LINKED = 'yo-linked.json' // written only after the user approved in the Binance app
+export const linked = (chat) => String(chat) !== OWNER && existsSync(join(walletDir(chat), LINKED))
+const connecting = new Set()
 
 export const store = {
   load: () => { try { return JSON.parse(readFileSync(DATA, 'utf8')) } catch { return [] } },
@@ -118,13 +125,13 @@ async function showStock(chat, ticker, owner) {
   const s = await scan(ticker.toUpperCase(), 10)
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const id = newId()
-  if (owner && s.best) pending.set(id, { ticker: s.ticker, at: Date.now() })
+  if (owner && s.best) pending.set(id, { chat, ticker: s.ticker, at: Date.now() })
   return card(chat, ui.stockCard(s, { company: m?.company, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best) })
 }
 
 async function showPortfolio(chat) {
   const r = await portfolio.report()
-  const reply_markup = r.rows.length ? ui.portfolioButtons(r.rows) : ui.homeButtons(true)
+  const reply_markup = r.rows.length ? ui.portfolioButtons(r.rows) : ui.homeButtons(true, linked(chat))
   if (r.rows.length && r.chart) return card(chat, ui.portfolio(r), { photo: r.chart, reply_markup }).catch(() => say(chat, ui.portfolio(r), { reply_markup }))
   return say(chat, ui.portfolio(r), { reply_markup })
 }
@@ -134,12 +141,52 @@ async function sellOffer(chat, ticker, amount = 'all') {
   const m = await stockMeta(s.row.t)
   if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.doneButtons })
   const id = newId()
-  pending.set(id, { cmd: '/sell', ticker, amount, at: Date.now() })
+  pending.set(id, { chat, cmd: '/sell', ticker, amount, at: Date.now() })
   return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.usdtOut) })
+}
+
+/** Sign-in QR → user approves in the Binance app → verify (blocks up to 5 min) → linked. */
+async function connectWallet(chat) {
+  if (connecting.has(chat)) return say(chat, ui.notice('Already waiting for your approval in the Binance app.'))
+  const dir = walletDir(chat)
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  const w = (...a) => wallet.run(dir, () => baw(...a))
+  const s = await w('auth', 'signin')
+  if (!s.success) return say(chat, ui.problem(s.error?.message ?? 'sign-in failed'))
+  connecting.add(chat)
+  try {
+    if (s.data.status !== 'ALREADY_CONNECTED') {
+      await card(chat, ui.connect(s.data), { photo: `${portfolio.QUICKCHART}/qr?size=400&margin=2&text=${encodeURIComponent(s.data.urlForWeb)}`, reply_markup: ui.connectButtons(s.data.urlForWeb) })
+      const v = await w('auth', 'verify', '--qrCodeId', s.data.qrCodeId)
+      if (!v.success) return say(chat, ui.connectFailed, { reply_markup: ui.homeButtons(false) })
+    }
+    const address = (await w('wallet', 'address')).data?.addresses?.find((a) => a.binanceChainId === '56')?.address
+    writeFileSync(join(dir, LINKED), JSON.stringify({ address, at: new Date().toISOString() }))
+    return say(chat, ui.connected(address), { reply_markup: ui.homeButtons(true, true) })
+  } finally {
+    connecting.delete(chat)
+  }
+}
+
+async function disconnectWallet(chat) {
+  await wallet.run(walletDir(chat), () => baw('auth', 'signout')).catch(() => {})
+  rmSync(walletDir(chat), { recursive: true, force: true })
+  return say(chat, ui.disconnected, { reply_markup: ui.homeButtons(false) })
+}
+
+/** A connected (non-owner) user: buy, sell and My stocks on their own wallet; the rest is the public demo. */
+function onLinked(chat, text = '') {
+  const name = text.trim().split(/\s+/)[0]?.replace(/@.*$/, '').toLowerCase()
+  if (name === '/portfolio') return showPortfolio(chat)
+  if (!name?.startsWith('/') && isTicker(name)) return showStock(chat, name, true)
+  if (name === '/sell') { const p = parse(text); return p.error ? say(chat, ui.notice(p.error)) : sellOffer(chat, p.ticker, p.amount) }
+  if (['/quote', '/analyze', '/macro', '/market'].includes(name)) return onPublic(chat, text)
+  return card(chat, ui.home(true), { reply_markup: ui.homeButtons(true, true) })
 }
 
 export async function onMessage(msg) {
   const chat = msg.chat.id
+  if (linked(chat)) return wallet.run(walletDir(chat), () => onLinked(chat, msg.text))
   if (String(chat) !== OWNER) return onPublic(chat, msg.text)
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
@@ -206,7 +253,8 @@ async function onPublic(chat, text = '') {
   if (name === '/market') return card(chat, `${ui.marketOffer(cmc.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   if (name === '/macro') return card(chat, `${ui.macroOffer(macro.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   const bare = !name?.startsWith('/') && isTicker(name)
-  if (!['/quote', '/analyze'].includes(name) && !bare) return ['/buy', '/sell', '/strategy', '/strategies', '/stop', '/portfolio'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.home(false), { reply_markup: ui.homeButtons(false) })
+  if (['/buy', '/sell', '/portfolio'].includes(name)) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
+  if (!['/quote', '/analyze'].includes(name) && !bare) return ['/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.home(false), { reply_markup: ui.homeButtons(false) })
   if (!publicAllowed(chat)) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
   if (bare) return showStock(chat, name, false)
   if (name === '/analyze') {
@@ -236,12 +284,19 @@ async function onStrategy(chat, text) {
 
 export async function onCallback(q) {
   const chat = q.message.chat.id
-  const owner = String(chat) === OWNER
+  return linked(chat) ? wallet.run(walletDir(chat), () => callback(q, chat)) : callback(q, chat)
+}
+
+async function callback(q, chat) {
+  const isOwner = String(chat) === OWNER
+  const owner = isOwner || linked(chat) // may trade (buy / sell / My stocks), each on their own wallet
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
-  if (['home', 'oth', 'stk', 'why', 'pf', 'sl'].includes(action)) {
+  if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id })
-    if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner) })
+    if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner, linked(chat)) })
+    if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : publicAllowed(chat) ? connectWallet(chat) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+    if (action === 'dw') return linked(chat) ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
     if (action === 'oth') return say(chat, ui.askTicker)
     if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
     if (action === 'why') { // the full provider comparison behind the simple card
@@ -249,7 +304,7 @@ export async function onCallback(q) {
       const s = await scan(id, 10)
       return say(chat, ui.quoteCard(s), { reply_markup: ui.whyButtons(id) })
     }
-    if (!owner) return say(chat, ui.ownerOnly)
+    if (!owner) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
     return action === 'pf' ? showPortfolio(chat) : sellOffer(chat, id)
   }
   const p = pending.get(id)
@@ -261,7 +316,9 @@ export async function onCallback(q) {
   pending.delete(id) // one tap = one decision, even on double-tap
   await tg('answerCallbackQuery', { callback_query_id: q.id })
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
-  if (String(chat) !== OWNER || !p || action === 'no') return say(chat, ui.notice(p ? 'Cancelled.' : 'This button has expired. Send /buy again.'))
+  // The owner may use any pending offer; a connected user only buy/sell offers made in their own chat.
+  const allowed = p && (isOwner || (p.chat === chat && ['buy', 'sell'].includes(action)))
+  if (!allowed || action === 'no') return say(chat, ui.notice(allowed ? 'Cancelled.' : 'This button has expired. Send /buy again.'))
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
     return say(chat, ui.strategySaved(id, describe(p.rule)))
