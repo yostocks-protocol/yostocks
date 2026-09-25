@@ -20,17 +20,62 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /strategies · your saved strategies
 /stop &lt;id&gt; · remove one`
 
+// ---- button-first home ----
+export const TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSTR', 'META', 'GOOGL', 'SPY', 'QQQ']
+export const AMOUNTS = [5, 10, 25]
+const rows = (btns, n) => btns.reduce((r, b, i) => (i % n ? r[r.length - 1].push(b) : r.push([b]), r), [])
+
+export const home = (owner) => [
+  '<b>yostocks</b> · buy US stocks on BNB Chain at the real price.',
+  '',
+  owner ? 'Pick a stock. I compare Ondo, xStocks and bStocks and only trade the safe, cheapest one.' : 'Pick a stock to see live prices. <i>(Demo: trading is owner-only.)</i>',
+].join('\n')
+export const homeButtons = (owner) => ({
+  inline_keyboard: [
+    ...rows(TICKERS.map((t) => ({ text: t, callback_data: `stk:${t}` })), 4),
+    owner ? [{ text: '💼 My stocks', callback_data: 'pf' }, { text: '🔎 Other stock', callback_data: 'oth' }] : [{ text: '🔎 Other stock', callback_data: 'oth' }],
+  ],
+})
+export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
+
+/** Compact guard result for one stock: the best route, and one line for the rest. */
+export function stockCard({ ticker, ref, rows: rs, best }, { company, owner } = {}) {
+  const others = rs.filter((r) => r !== best).map((r) => `${PROVIDER[r.t.type]} ${r.ok ? pct(r.dev) : esc(shortWhy(r.why))}`)
+  const lines = [`<b>${esc(ticker)}</b>${company ? ` · ${esc(company)}` : ''}`, `Real price <b>${usd(ref)}</b> / share`, '']
+  if (best) lines.push(`✅ Best: <b>${PROVIDER[best.t.type]}</b> ${usd(best.perShare)} (${pct(best.dev)})`)
+  else lines.push('⛔ <b>No safe route right now.</b>')
+  if (others.length) lines.push(`<i>Also: ${others.join(' · ')}</i>`)
+  if (best && owner) lines.push('', 'Tap an amount to buy. I check the price again first.')
+  return lines.join('\n')
+}
+const shortWhy = (w = '') => (/liquidity/i.test(w) ? 'no liquidity' : /~0 tokens/.test(w) ? 'bad quote' : /off reference/.test(w) ? 'off price' : /market opening hours/i.test(w) ? 'closed' : 'unavailable')
+export const stockButtons = (id, ticker, canBuy) => ({
+  inline_keyboard: [
+    ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
+    [{ text: '↻ Refresh', callback_data: `stk:${ticker}` }, { text: '🏠 Menu', callback_data: 'home' }],
+  ],
+})
+
+export function portfolio(items) {
+  if (!items.length) return '💼 <b>My stocks</b>\n\nNothing yet. Pick a stock to buy your first one.'
+  const total = items.reduce((a, h) => a + h.usd, 0)
+  return [
+    `💼 <b>My stocks</b> · ${usd(total)}`,
+    '',
+    ...items.map((h) => `• <b>${esc(h.t.ticker)}</b> ${qty(h.qty)} ${esc(h.t.symbol)} (${PROVIDER[h.t.type]}) ≈ ${usd(h.usd)}`),
+  ].join('\n')
+}
+export const portfolioButtons = (items) => ({
+  inline_keyboard: [
+    ...rows([...new Set(items.map((h) => h.t.ticker))].map((t) => ({ text: `Sell ${t}`, callback_data: `sl:${t}` })), 3),
+    [{ text: '🏠 Menu', callback_data: 'home' }],
+  ],
+})
+
 /** Telegram's command menu (setMyCommands) and the text shown before a user presses Start. */
 export const COMMANDS = [
-  { command: 'quote', description: 'Compare a stock across Ondo, xStocks, bStocks · /quote NVDA 10' },
-  { command: 'buy', description: 'Buy from the safest, cheapest route · /buy NVDA 10' },
-  { command: 'sell', description: 'Sell a stock you hold for USDT · /sell NVDA' },
-  { command: 'analyze', description: 'Research report by BNB Agent Studio, paid via x402 · /analyze NVDA' },
-  { command: 'macro', description: "This week's CPI / jobs / Fed calendar, paid via x402" },
-  { command: 'strategy', description: 'Automate in plain English · /strategy buy $10 of NVDA every Monday' },
-  { command: 'strategies', description: 'Your saved strategies' },
-  { command: 'stop', description: 'Remove a strategy · /stop <id>' },
-  { command: 'start', description: 'How yostocks works' },
+  { command: 'start', description: 'Pick a stock and buy it at the real price' },
+  { command: 'portfolio', description: 'Your tokenized stocks, with a Sell button' },
 ]
 export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostocks compares Ondo, xStocks and bStocks against the real stock price, blocks bad quotes, and buys from the best route through your Binance Agentic Wallet.'
 export const SHORT_DESCRIPTION = 'Tokenized US stocks on BNB Chain, with a safety check on every trade.'
