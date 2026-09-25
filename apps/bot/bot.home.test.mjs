@@ -29,9 +29,9 @@ const arg = (c, k) => c[c.indexOf(k) + 1]
 
 test('owner /start: short pitch + ticker buttons + My stocks', async () => {
   await onMessage({ chat: { id: OWNER }, text: '/start' })
-  assert.match(texts()[0], /buy US stocks on BNB Chain at the real price/)
+  assert.match(texts()[0], /Buy US stocks with USDT/)
   const labels = kb().map((b) => b.text)
-  for (const t of ['NVDA', 'TSLA', 'AAPL', 'MSTR', '💼 My stocks', '🔎 Other stock']) assert.ok(labels.includes(t), t)
+  for (const t of ['NVIDIA', 'Tesla', 'Apple', 'Strategy', '💼 My stocks']) assert.ok(labels.includes(t), t)
 })
 
 test('tap NVDA → one-line best route, others summarised, Buy $5/$10/$25; nothing traded', async () => {
@@ -39,10 +39,9 @@ test('tap NVDA → one-line best route, others summarised, Buy $5/$10/$25; nothi
   const n = swaps().length
   await tap('stk:NVDA')
   const c = texts().at(-1)
-  assert.match(c, /<b>NVDA<\/b> · Nvidia Corp\nReal price <b>\$\d+\.\d\d<\/b> \/ share/)
-  assert.match(c, /✅ Best: <b>bStocks<\/b> \$\d+\.\d\d \(\+0\.02%\)/)
-  assert.match(c, /Also: Ondo \+0\.30% · xStocks no liquidity/)
-  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', '↻ Refresh', '🏠 Menu'])
+  assert.match(c, /<b>NVIDIA<\/b> \(NVDA\)\n<b>\$\d+\.\d\d<\/b> per share/)
+  assert.match(c, /✅ <b>Good price right now<\/b>\n<i>Cheapest safe option: bStocks, 0\.02% above the stock price\.<\/i>/)
+  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', 'ℹ️ Why?', '🏠 Home'])
   assert.equal(swaps().length, n)
 })
 
@@ -57,7 +56,7 @@ test('Buy $10 re-checks at 10 USDT, swaps exactly 10 into the best token once, s
   const s = swaps().at(-1)
   assert.equal(arg(s, '--fromTokenQty'), '10')
   assert.equal(arg(s, '--toToken'), addr('NVDAB'))
-  assert.match(texts().at(-1), /✅ <b>Order filled<\/b>[\s\S]*Paid: <b>10\.00 USDT<\/b>[\s\S]*0xh0me/)
+  assert.match(texts().at(-1), /✅ <b>Done! You bought NVIDIA<\/b>[\s\S]*shares for <b>\$10\.00<\/b>[\s\S]*0xh0me/)
   await tap(buy10)
   assert.equal(swaps().length, n + 1, 'one card, one buy')
 })
@@ -65,7 +64,7 @@ test('Buy $10 re-checks at 10 USDT, swaps exactly 10 into the best token once, s
 test('typing a ticker opens its card; stale or forged Buy buttons never trade', async (t) => {
   sc.set({ quotes: quotes(10) })
   await onMessage({ chat: { id: OWNER }, text: 'nvda' })
-  assert.match(texts().at(-1), /<b>NVDA<\/b>/)
+  assert.match(texts().at(-1), /\(NVDA\)/)
   const buy5 = button('Buy $5')
   const n = swaps().length
   const now = Date.now()
@@ -84,18 +83,18 @@ test('💼 My stocks lists holdings with value and a Sell button that opens the 
   sc.set({ balances: [{ symbol: 'NVDAB', address: addr('NVDAB'), balance: HELD, value: '5.02' }, { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '4', value: '4' }],
     sellQuotes: { [addr('NVDAB')]: quote(Number(HELD) * mult('NVDAB') * ref) } })
   await tap('pf')
-  assert.match(texts().at(-1), /💼 <b>My stocks<\/b> · \$5\.02[\s\S]*• <b>NVDA<\/b> 0\.022410 NVDAB \(bStocks\) ≈ \$5\.02/)
+  assert.match(texts().at(-1), /💼 <b>Your stocks<\/b> · \$5\.02[\s\S]*<b>NVIDIA<\/b> · 0\.0224 shares · \$5\.02/)
   assert.ok(!texts().at(-1).includes('USDT'), 'stablecoins are not stocks')
-  await tap(button('Sell NVDA'))
-  assert.match(texts().at(-1), /Selling <b>0\.022410 NVDAB<\/b>/)
-  assert.match(kb()[0].text, /^✅ Sell 0\.022410 NVDAB → USDT$/)
+  await tap(button('Sell NVIDIA'))
+  assert.match(texts().at(-1), /Sell NVIDIA\?/)
+  assert.match(kb()[0].text, /^✅ Sell for ~\$\d+\.\d\d$/)
 })
 
 test('empty wallet: My stocks says so and offers the ticker menu', async () => {
   sc.set({ balances: [] })
   await tap('pf')
-  assert.match(texts().at(-1), /Nothing yet/)
-  assert.ok(kb().some((b) => b.text === 'NVDA'))
+  assert.match(texts().at(-1), /don't own any stocks yet/)
+  assert.ok(kb().some((b) => b.text === 'NVIDIA'))
 })
 
 test('stranger: home without My stocks, stock card without Buy, portfolio/sell blocked, rate-limited', async () => {
@@ -105,10 +104,10 @@ test('stranger: home without My stocks, stock card without Buy, portfolio/sell b
   await tap('stk:META', 77) // first card for this chat
   const n = swaps().length
   await tap('stk:NVDA', 77)
-  assert.match(texts().at(-1), /One quote every 10 seconds/)
+  assert.match(texts().at(-1), /One price check every 10 seconds/)
   await tap('pf', 77)
   await tap('sl:NVDA', 77)
-  assert.ok(texts().slice(-2).every((t) => /owner's wallet only/.test(t)))
+  assert.ok(texts().slice(-2).every((t) => /only the owner's wallet/.test(t)))
   await onMessage({ chat: { id: 78 }, text: 'nvda' })
   assert.ok(!kb().some((b) => b.text.startsWith('Buy')))
   assert.equal(swaps().length, n)

@@ -63,7 +63,7 @@ test('a failed but retryable job is resumed for free and still delivered', async
 test("a stranger sees the x402 offer but gets no Pay button and nothing is signed", async () => {
   const n = signs().length
   await onMessage({ chat: { id: 7 }, text: '/analyze NVDA' })
-  assert.match(texts()[0], /Price: <b>0\.1 (U|USDT)<\/b>[\s\S]*owner's wallet only/)
+  assert.match(texts()[0], /Price: <b>0\.1 (U|USDT)<\/b>[\s\S]*only the owner's wallet/)
   assert.equal(sent[0].reply_markup, undefined)
   assert.equal(signs().length, n)
 })
@@ -95,7 +95,7 @@ test('/market → offer with Pay → one payment → market card with the metric
 
 test('stranger /market sees the offer without a Pay button', async () => {
   await onMessage({ chat: { id: 9 }, text: '/market' })
-  assert.match(texts()[0], /Crypto market snapshot[\s\S]*owner's wallet only/)
+  assert.match(texts()[0], /Crypto market snapshot[\s\S]*only the owner's wallet/)
   assert.equal(sent[0].reply_markup, undefined)
 })
 
