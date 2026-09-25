@@ -18,7 +18,7 @@ export const steps: Step[] = [
 export interface Feature { icon: string; title: string; body: string }
 export const features: Feature[] = [
   { icon: '🛡', title: 'Quote guard', body: 'Cheapest safe provider or no trade at all. Buttons expire after 60 seconds and work once.' },
-  { icon: '💱', title: 'Buy and sell', body: '<code>/buy NVDA 10</code>, <code>/sell NVDA</code>. Sells go through the same guard, so you never dump below the real price.' },
+  { icon: '💱', title: 'Tap to buy, tap to sell', body: 'Pick a stock, tap <b>Buy $10</b>. Open <b>My stocks</b>, tap <b>Sell</b>. Every tap runs the guard again, so you never buy above or dump below the real price.' },
   { icon: '🗣', title: 'Plain-English strategies', body: "<code>/strategy buy $10 of NVDA every Monday, skip earnings</code>. The AI translates, fixed code enforces the limits, anything it can't express is refused." },
   { icon: '🤖', title: 'Autopilot with brakes', body: "Saved rules run on schedule through the guard, the rule's conditions and a daily spend cap. Every run is reported." },
   { icon: '💳', title: 'Pays for its own data', body: "<code>/macro</code> buys this week's CPI, jobs and Fed calendar agent-to-agent over <b>x402</b>, straight from the Agentic Wallet." },
