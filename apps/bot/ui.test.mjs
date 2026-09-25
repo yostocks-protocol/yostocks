@@ -42,7 +42,7 @@ test('strategy list shows ids and bullet points, or a hint when empty', () => {
 })
 
 test('command menu fits Telegram limits and matches what the bot handles', () => {
-  const handled = ['quote', 'buy', 'sell', 'analyze', 'macro', 'strategy', 'strategies', 'stop', 'start']
+  const handled = ['start', 'portfolio']
   assert.deepEqual(ui.COMMANDS.map((c) => c.command).sort(), handled.sort())
   for (const c of ui.COMMANDS) {
     assert.match(c.command, /^[a-z0-9_]{1,32}$/)
