@@ -16,6 +16,7 @@ const STABLES = new Set([
 const lc = (a) => String(a ?? '').toLowerCase()
 
 /** Finished BSC market orders, oldest first. */
+// ponytail: newest 100 only; past that the oldest buys drop out of the cost basis. Page with --page if a wallet gets there.
 export async function orders() {
   const r = await baw('market-order', 'list', '--binanceChainId', '56', '--status', 'FINISHED', '--pageSize', '100')
   if (!r.success) throw new Error(`order history failed: ${JSON.stringify(r.error)}`)

@@ -6,20 +6,6 @@ const usd = (n) => `$${Number(n).toFixed(2)}`
 const pct = (n) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(2)}%`
 const qty = (n) => Number(n).toFixed(6)
 
-export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a safety check on every trade.
-
-<b>Trade</b>
-/quote NVDA 10 · compare Ondo, xStocks and bStocks
-/buy NVDA 10 · buy from the safest, cheapest route
-/sell NVDA · sell what you hold (or /sell NVDA 0.01)
-/analyze NVDA · research report from BNB Agent Studio, paid via x402
-/macro · this week's CPI / jobs / Fed calendar, paid via x402
-
-<b>Autopilot</b>
-/strategy buy $10 of NVDA every Monday, skip earnings
-/strategies · your saved strategies
-/stop &lt;id&gt; · remove one`
-
 // ---- button-first home: plain words, names instead of tickers, details behind "Why?" ----
 export const TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSTR', 'META', 'GOOGL', 'SPY', 'QQQ']
 export const NAMES = { NVDA: 'NVIDIA', TSLA: 'Tesla', AAPL: 'Apple', MSTR: 'Strategy', META: 'Meta', GOOGL: 'Google', SPY: 'S&P 500', QQQ: 'Nasdaq 100' }
@@ -61,6 +47,7 @@ export const connectButtons = (url) => ({ inline_keyboard: [[{ text: '📲 Open 
 export const connected = (address) => `✅ <b>Wallet connected</b>${address ? `\n<code>${esc(address)}</code>` : ''}\n\nPick a stock to buy. Your trades use your own wallet and its spending limit.`
 export const connectFailed = "⌛ The wallet wasn't connected (the code expired or was rejected). Nothing changed."
 export const disconnected = '🔌 Wallet disconnected. You can connect again anytime.'
+export const sessionEnded = '🔐 <b>Your wallet session ended.</b>\nIt lasts up to 7 days, and signing in somewhere else ends it too. Connect again to keep trading.'
 export const connectFirst = '🔒 Connect your Binance wallet to buy or sell. You can look at any stock without it.'
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
@@ -116,14 +103,6 @@ export const COMMANDS = [
 export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostocks compares Ondo, xStocks and bStocks against the real stock price, blocks bad quotes, and buys from the best route through your Binance Agentic Wallet.'
 export const SHORT_DESCRIPTION = 'Buy US stocks with USDT, only at the real price.'
 
-export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a safety check on every trade.
-
-You're in <b>demo mode</b>: try it on live mainnet data.
-/quote NVDA 10 · compare Ondo, xStocks and bStocks against the real stock price
-/analyze NVDA · see the x402 research offer from BNB Agent Studio
-/macro · see the x402 macro-calendar offer
-
-Buying, selling and strategies run on the owner's wallet only.`
 export const ownerOnly = "🔒 This is a demo: only the owner's wallet can buy or sell. Tap any stock to see its price."
 export const slowDown = (s) => `⏱ One price check every ${s} seconds in demo mode, please.`
 

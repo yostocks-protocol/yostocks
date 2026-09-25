@@ -20,7 +20,15 @@ const DATA = process.env.YO_DATA ?? new URL('./data/strategies.json', import.met
 const WALLETS = process.env.YO_WALLETS ?? join(dirname(DATA), 'wallets')
 const walletDir = (chat) => join(WALLETS, String(Number(chat)))
 const LINKED = 'yo-linked.json' // written only after the user approved in the Binance app
-export const linked = (chat) => String(chat) !== OWNER && existsSync(join(walletDir(chat), LINKED))
+// Private chats only (positive ids): in a group every member could tap the buttons of a wallet linked to it.
+export const linked = (chat) => Number(chat) > 0 && String(chat) !== OWNER && existsSync(join(walletDir(chat), LINKED))
+const unlink = (chat) => rmSync(walletDir(chat), { recursive: true, force: true })
+/** Run fn on the user's own wallet; if its session died (7-day limit, or signed in elsewhere) unlink and ask to reconnect. */
+const asUser = (chat, fn) => wallet.run(walletDir(chat), fn).catch((e) => {
+  if (!/SESSION_EXPIRED|NOT_LOGGED_IN/.test(e.message)) throw e
+  unlink(chat)
+  return say(chat, ui.sessionEnded, { reply_markup: ui.homeButtons(false) })
+})
 const connecting = new Set()
 
 export const store = {
@@ -156,7 +164,9 @@ async function connectWallet(chat) {
   connecting.add(chat)
   try {
     if (s.data.status !== 'ALREADY_CONNECTED') {
-      await card(chat, ui.connect(s.data), { photo: `${portfolio.QUICKCHART}/qr?size=400&margin=2&text=${encodeURIComponent(s.data.urlForWeb)}`, reply_markup: ui.connectButtons(s.data.urlForWeb) })
+      const reply_markup = ui.connectButtons(s.data.urlForWeb)
+      await card(chat, ui.connect(s.data), { photo: `${portfolio.QUICKCHART}/qr?size=400&margin=2&text=${encodeURIComponent(s.data.urlForWeb)}`, reply_markup })
+        .catch(() => say(chat, ui.connect(s.data), { reply_markup })) // QR image unavailable: the Open Binance button still works
       const v = await w('auth', 'verify', '--qrCodeId', s.data.qrCodeId)
       if (!v.success) return say(chat, ui.connectFailed, { reply_markup: ui.homeButtons(false) })
     }
@@ -170,7 +180,7 @@ async function connectWallet(chat) {
 
 async function disconnectWallet(chat) {
   await wallet.run(walletDir(chat), () => baw('auth', 'signout')).catch(() => {})
-  rmSync(walletDir(chat), { recursive: true, force: true })
+  unlink(chat)
   return say(chat, ui.disconnected, { reply_markup: ui.homeButtons(false) })
 }
 
@@ -186,7 +196,7 @@ function onLinked(chat, text = '') {
 
 export async function onMessage(msg) {
   const chat = msg.chat.id
-  if (linked(chat)) return wallet.run(walletDir(chat), () => onLinked(chat, msg.text))
+  if (linked(chat)) return asUser(chat, () => onLinked(chat, msg.text))
   if (String(chat) !== OWNER) return onPublic(chat, msg.text)
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
@@ -284,7 +294,7 @@ async function onStrategy(chat, text) {
 
 export async function onCallback(q) {
   const chat = q.message.chat.id
-  return linked(chat) ? wallet.run(walletDir(chat), () => callback(q, chat)) : callback(q, chat)
+  return linked(chat) ? asUser(chat, () => callback(q, chat)) : callback(q, chat)
 }
 
 async function callback(q, chat) {
@@ -295,6 +305,7 @@ async function callback(q, chat) {
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id })
     if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner, linked(chat)) })
+    if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
     if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : publicAllowed(chat) ? connectWallet(chat) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
     if (action === 'dw') return linked(chat) ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
     if (action === 'oth') return say(chat, ui.askTicker)
