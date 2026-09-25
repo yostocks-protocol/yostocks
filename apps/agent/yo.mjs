@@ -5,6 +5,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { realpathSync } from 'node:fs'
 import { createInterface } from 'node:readline/promises'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 const run = promisify(execFile)
 const BAW = process.env.BAW || 'baw'
@@ -25,9 +26,13 @@ async function api(path) {
   return j.data
 }
 
+/** Which Agentic Wallet session baw uses: wallet.run(dir, fn) points every baw call inside fn at that BINANCE_BAW_DIR. */
+export const wallet = new AsyncLocalStorage()
+
 export async function baw(...args) {
+  const dir = wallet.getStore()
   try {
-    return JSON.parse((await run(BAW, [...args, '--json'])).stdout)
+    return JSON.parse((await run(BAW, [...args, '--json'], dir ? { env: { ...process.env, BINANCE_BAW_DIR: dir } } : {})).stdout)
   } catch (e) {
     if (e.stdout) return JSON.parse(e.stdout) // baw exits 1 with a JSON error body
     throw e
