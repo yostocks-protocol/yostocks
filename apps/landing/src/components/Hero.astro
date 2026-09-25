@@ -1,0 +1,66 @@
+---
+import { links } from '../data/content'
+---
+<section class="hero-card">
+  <div class="hero-grid"></div>
+
+  <div class="icon-pipeline" id="pipeline">
+    <svg class="beam-svg" aria-hidden="true">
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="blur" /><feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <linearGradient id="beam-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="10" y2="0">
+          <stop offset="0%" stop-color="#e2574c" stop-opacity="0" />
+          <stop offset="20%" stop-color="#e2574c" stop-opacity="0.8" />
+          <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
+          <stop offset="80%" stop-color="#f4ecd6" stop-opacity="0.8" />
+          <stop offset="100%" stop-color="#f4ecd6" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path id="beam-glow" stroke="url(#beam-gradient)" stroke-width="2" filter="url(#glow)" opacity="0.6" />
+      <path id="beam-core" stroke="url(#beam-gradient)" stroke-width="0.8" />
+    </svg>
+
+    <div class="node-wrap">
+      <div class="icon-node node-light-right" id="node-stack" title="Ondo · xStocks · bStocks">
+        <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
+      </div>
+      <span class="node-label">3 providers</span>
+    </div>
+    <div class="pipeline-line"></div>
+    <div class="node-wrap">
+      <div class="splash" id="splash"></div>
+      <div class="icon-node-center" id="node-x"><img src="/yo.png" alt="yostocks guard" width="64" height="64" /></div>
+      <span class="node-label">guard</span>
+    </div>
+    <div class="pipeline-line right"></div>
+    <div class="node-wrap">
+      <div class="icon-node node-light-left" id="node-shield" title="Safe fill">
+        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
+      </div>
+      <span class="node-label">safe fill</span>
+    </div>
+  </div>
+
+  <div class="hero-content">
+    <span class="eyebrow"><b>BNB Hack</b> · Tokenized Stocks Edition</span>
+    <h1 class="hero-heading">
+      Tokenized stocks,
+      <strong>filled at the real price</strong>
+    </h1>
+    <p class="hero-sub">
+      A Telegram agent for US stocks on BNB Chain. It checks Ondo, xStocks and bStocks against the real
+      stock price, refuses a bad quote, and trades the best route through your Binance Agentic Wallet.
+    </p>
+    <div class="cta-row">
+      <a href={links.bot} class="btn-cta" target="_blank" rel="noopener">Open @yostocksbot</a>
+      <a href="#how" class="btn-ghost">How it works</a>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { startBeam } from '../scripts/beam'
+  startBeam()
+</script>

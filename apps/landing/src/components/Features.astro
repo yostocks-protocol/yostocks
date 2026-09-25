@@ -1,0 +1,16 @@
+---
+import { features } from '../data/content'
+---
+<section class="block" id="features">
+  <p class="kicker">What you get</p>
+  <h2>A careful agent, <strong>in a chat you already use</strong></h2>
+  <div class="features">
+    {features.map((f) => (
+      <div class="card feature">
+        <div class="ico" aria-hidden="true">{f.icon}</div>
+        <h3>{f.title}</h3>
+        <p set:html={f.body} />
+      </div>
+    ))}
+  </div>
+</section>

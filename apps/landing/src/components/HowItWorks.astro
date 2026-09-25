@@ -1,0 +1,16 @@
+---
+import { steps } from '../data/content'
+---
+<section class="block" id="how">
+  <p class="kicker">How it works</p>
+  <h2>Quote everything. <strong>Trust nothing blindly.</strong></h2>
+  <div class="steps">
+    {steps.map((s) => (
+      <div class="card step">
+        <p class="num mono">{s.num}</p>
+        <h3>{s.title}</h3>
+        <p>{s.body}</p>
+      </div>
+    ))}
+  </div>
+</section>
