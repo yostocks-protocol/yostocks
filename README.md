@@ -104,6 +104,19 @@ npm start -w apps/bot
 
 **yoguard** (Agent Studio seller): `npm i -g @bnbagent/studio-cli`, then in `apps/yoguard`: `bag doctor`, `bag dev`.
 
+## Deploy (how @yostocksbot runs)
+
+Coolify on a VPS builds the `Dockerfile` from `main`; state lives on a persistent volume at `/data`
+(wallet session, strategies, paid-report jobs). Runtime secrets: `TELEGRAM_BOT_TOKEN`, `YO_OWNER_CHAT_ID`,
+`OPENAI_API_KEY`, and **`BINANCE_INSTANCE_ID`**: any fixed random string. `baw` encrypts its session with a key
+derived from it (or from the machine identity, which changes on every container restart), so without it the
+wallet signs out on each redeploy. Sign in once inside the container:
+
+```sh
+docker exec -it <container> baw auth signin     # open the link, confirm the pairing code in the Binance App
+docker exec -it <container> baw auth verify --qrCodeId <id>
+```
+
 ## Testing
 
 ```sh
