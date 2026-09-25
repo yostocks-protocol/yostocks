@@ -18,7 +18,7 @@ export const steps: Step[] = [
 export interface Feature { icon: string; title: string; body: string }
 export const features: Feature[] = [
   { icon: '🛡', title: 'Quote guard', body: 'Cheapest safe provider or no trade at all. Tap <b>Buy $10</b> or <b>Sell</b>: the guard runs again right before the trade, and buttons expire after 60 seconds.' },
-  { icon: '🔗', title: 'Your wallet, your limits', body: 'Tap <b>Connect my Binance wallet</b> and approve in the Binance app. Every trade runs on your own Agentic Wallet, inside the spending limit you set there.' },
+  { icon: '🔗', title: 'Your wallet, your limits', body: 'Tap <b>Connect Binance to buy</b> and approve in the Binance app. Every trade runs on your own Agentic Wallet, inside the spending limit you set there.' },
   { icon: '📈', title: 'Profit at a glance', body: '<b>My stocks</b> shows what you own, your profit or loss since you bought, and a chart of it over time, built from your own order history.' },
   { icon: '🗣', title: 'Plain-English autopilot', body: "<code>/strategy buy $10 of NVDA every Monday, skip earnings</code>. The AI translates; fixed code enforces the rule, the guard and a daily spend cap." },
   { icon: '💳', title: 'Pays for its own data', body: "<code>/macro</code> buys this week's CPI, jobs and Fed calendar agent-to-agent over <b>x402</b>, straight from the Agentic Wallet." },
