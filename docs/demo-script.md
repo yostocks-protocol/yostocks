@@ -6,7 +6,7 @@ Say the lines in your own words. The times are targets.
 | Time | Screen | Say |
 |---|---|---|
 | 0:00–0:20 | yostocks.xyz hero | "The same stock, like NVIDIA, is on BNB Chain three times: Ondo, xStocks and bStocks. They trade at different prices, and some quotes are simply wrong. yostocks buys from the cheapest one that matches the real stock price, or it doesn't buy at all." |
-| 0:20–0:45 | Telegram: @yostocksbot → Start → **🔗 Connect my Binance wallet** → Binance app approve | "No seed phrase and no deposit to us. I connect my own Binance Agentic Wallet and set how much the agent may spend." Show the pairing code matching, then ✅ Wallet connected. |
+| 0:20–0:45 | Telegram: @yostocksbot → Start → NVIDIA → **🔗 Connect Binance to buy** → Binance app approve → back on NVIDIA | "No seed phrase and no deposit to us. I connect my own Binance Agentic Wallet and set how much the agent may spend." Show the pairing code matching, then ✅ Wallet connected. |
 | 0:45–1:25 | Tap **NVIDIA** → card → **ℹ️ Why?** | "It checked every provider against the live NVIDIA price, per share, including the token's share multiplier. bStocks is 0.1% under, Ondo is 0.3% over, xStocks has no liquidity, so it's skipped." |
 | 1:25–2:00 | **Buy $10** → ⏳ → ✅ receipt → tap BscScan link | "Before the swap it runs the guard again, because prices move. The swap is on BSC mainnet, and the receipt only comes after the order is actually filled." |
 | 2:00–2:30 | **💼 My stocks**: PnL chart + lines | "What I own, what it's worth, and profit or loss since I bought, from my own order history. The chart is profit over time from hourly prices." |

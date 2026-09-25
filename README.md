@@ -20,8 +20,8 @@ Telegram, in plain English if you like, and it executes through **Binance Agenti
 Press **Start** and tap a stock (NVDA, TSLA, AAPL, MSTR, META, GOOGL, SPY, QQQ) or just type a ticker. You get the
 real price, the best safe provider in one line, and why the others were skipped, on live mainnet data.
 
-**Trade with your own wallet:** tap **🔗 Connect my Binance wallet**, open the link (or scan the QR code) in the
-Binance app and approve. From then on **Buy**, **Sell** and **💼 My stocks** (value, profit/loss and a PnL chart) run on
+**Trade with your own wallet:** tap a stock, then **🔗 Connect Binance to buy**, and approve in the Binance app
+(or scan the QR code). You land back on that stock with the Buy buttons. From then on **Buy**, **Sell** and **💼 My stocks** (value, profit/loss and a PnL chart) run on
 your own Agentic Wallet, within the spending limit you set in the app. **🔌 Disconnect** signs the bot out.
 Strategies and paid data stay on the owner's wallet.
 

@@ -12,7 +12,7 @@ const BAW = process.env.BAW || 'baw'
 const MAX_DEV = Number(process.env.YO_MAX_DEV ?? 1) // % a quote may differ from the reference price
 const SLIPPAGE = process.env.YO_SLIPPAGE ?? '1' // %
 const POLL_MS = Number(process.env.YO_POLL_MS ?? 3000) // order status poll interval, 30 polls max
-const USDT = '0x55d398326f99059fF775485246999027B3197955'
+export const USDT = '0x55d398326f99059fF775485246999027B3197955'
 const API = 'https://www.binance.com/bapi/defi'
 const HEADERS = { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' }
 const PROVIDER = { 1: 'Ondo', 2: 'xStocks', 3: 'bStocks' }
@@ -72,7 +72,7 @@ async function market(ticker) {
   return { rows, ref }
 }
 
-function assertSignedIn(...responses) {
+export function assertSignedIn(...responses) {
   const e = responses.find((r) => AUTH_ERRORS.includes(r?.error?.name))
   if (e) throw new Error(`Agentic Wallet ${e.error.name}: run \`baw auth signin\``)
 }

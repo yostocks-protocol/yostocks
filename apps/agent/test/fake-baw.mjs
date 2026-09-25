@@ -21,7 +21,7 @@ else if (args[0] === 'auth' && args[1] === 'signin') out = f.signin ?? { success
 else if (args[0] === 'auth' && args[1] === 'verify') out = f.verify ?? { success: true, data: { status: 'SUCCESS' } }
 else if (args[0] === 'auth' && args[1] === 'signout') out = { success: true, data: { status: 'LOGGED_OUT' } }
 else if (args[0] === 'wallet' && args[1] === 'address') out = { success: true, data: { addresses: [{ binanceChainId: '56', chainName: 'BSC', address: f.address ?? '0x000000000000000000000000000000000000dEaD' }] } }
-else if (args[0] === 'wallet' && args[1] === 'balance') out = { success: true, data: f.balances ?? [] }
+else if (args[0] === 'wallet' && args[1] === 'balance') out = { success: true, data: f.balances ?? [{ symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '1000', value: '1000' }] }
 else if (args[1] === 'quote' && arg('--toToken').toLowerCase() === USDT) out = f.sellQuotes?.[arg('--fromToken').toLowerCase()] ?? NO_LIQ
 else if (args[1] === 'quote') out = f.quotes?.[arg('--toToken').toLowerCase()] ?? NO_LIQ
 else if (args[1] === 'swap') out = f.swap ?? { success: true, data: { orderId: 'o-1' } }
