@@ -20,65 +20,77 @@ export const HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a
 /strategies · your saved strategies
 /stop &lt;id&gt; · remove one`
 
-// ---- button-first home ----
+// ---- button-first home: plain words, names instead of tickers, details behind "Why?" ----
 export const TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSTR', 'META', 'GOOGL', 'SPY', 'QQQ']
+export const NAMES = { NVDA: 'NVIDIA', TSLA: 'Tesla', AAPL: 'Apple', MSTR: 'Strategy', META: 'Meta', GOOGL: 'Google', SPY: 'S&P 500', QQQ: 'Nasdaq 100' }
 export const AMOUNTS = [5, 10, 25]
+export const nameOf = (ticker, company) => NAMES[ticker] ?? company?.replace(/\s+(Corp|Inc|Corporation|Incorporated|Ltd|plc)\.?$/i, '') ?? ticker
 const rows = (btns, n) => btns.reduce((r, b, i) => (i % n ? r[r.length - 1].push(b) : r.push([b]), r), [])
+const shares = (n) => { const x = Number(n); return x >= 1 ? x.toFixed(2) : x.toPrecision(3) }
+const vs = (d) => (Math.abs(d) < 0.005 ? 'at the stock price' : `${Math.abs(d).toFixed(2)}% ${d > 0 ? 'above' : 'below'} the stock price`)
+const home$ = { text: '🏠 Home', callback_data: 'home' }
+const mine$ = { text: '💼 My stocks', callback_data: 'pf' }
+export const doneButtons = { inline_keyboard: [[mine$, home$]] }
 
 export const home = (owner) => [
-  '<b>yostocks</b> · buy US stocks on BNB Chain at the real price.',
-  '',
-  owner ? 'Pick a stock. I compare Ondo, xStocks and bStocks and only trade the safe, cheapest one.' : 'Pick a stock to see live prices. <i>(Demo: trading is owner-only.)</i>',
+  '👋 <b>Buy US stocks with USDT</b>',
+  'Pick one, or type any ticker (like <code>AMD</code>).',
+  'I only buy when the price matches the real stock price.',
+  ...(owner ? [] : ['', '<i>Demo: you can look around; only the owner can buy.</i>']),
 ].join('\n')
 export const homeButtons = (owner) => ({
   inline_keyboard: [
-    ...rows(TICKERS.map((t) => ({ text: t, callback_data: `stk:${t}` })), 4),
-    owner ? [{ text: '💼 My stocks', callback_data: 'pf' }, { text: '🔎 Other stock', callback_data: 'oth' }] : [{ text: '🔎 Other stock', callback_data: 'oth' }],
+    ...rows(TICKERS.map((t) => ({ text: NAMES[t], callback_data: `stk:${t}` })), 2),
+    ...(owner ? [[mine$]] : []),
   ],
 })
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
 
-/** Compact guard result for one stock: the best route, and one line for the rest. */
-export function stockCard({ ticker, ref, rows: rs, best }, { company, owner } = {}) {
-  const others = rs.filter((r) => r !== best).map((r) => `${PROVIDER[r.t.type]} ${r.ok ? pct(r.dev) : esc(shortWhy(r.why))}`)
-  const lines = [`<b>${esc(ticker)}</b>${company ? ` · ${esc(company)}` : ''}`, `Real price <b>${usd(ref)}</b> / share`, '']
-  if (best) lines.push(`✅ Best: <b>${PROVIDER[best.t.type]}</b> ${usd(best.perShare)} (${pct(best.dev)})`)
-  else lines.push('⛔ <b>No safe route right now.</b>')
-  if (others.length) lines.push(`<i>Also: ${others.join(' · ')}</i>`)
-  if (best && owner) lines.push('', 'Tap an amount to buy. I check the price again first.')
+/** One stock, in plain words. The provider comparison lives behind "Why?". */
+export function stockCard({ ticker, ref, best }, { company, owner } = {}) {
+  const lines = [`<b>${esc(nameOf(ticker, company))}</b> (${esc(ticker)})`, `<b>${usd(ref)}</b> per share`, '']
+  if (!best) {
+    lines.push('⚠️ <b>Not a good time to buy.</b>', "On-chain prices don't match the real price right now. Try again in a bit.")
+  } else {
+    lines.push('✅ <b>Good price right now</b>', `<i>Cheapest safe option: ${PROVIDER[best.t.type]}, ${vs(best.dev)}.</i>`)
+    if (owner) lines.push('', 'How much do you want to buy?')
+  }
   return lines.join('\n')
 }
-const shortWhy = (w = '') => (/liquidity/i.test(w) ? 'no liquidity' : /~0 tokens/.test(w) ? 'bad quote' : /off reference/.test(w) ? 'off price' : /market opening hours/i.test(w) ? 'closed' : 'unavailable')
 export const stockButtons = (id, ticker, canBuy) => ({
   inline_keyboard: [
     ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
-    [{ text: '↻ Refresh', callback_data: `stk:${ticker}` }, { text: '🏠 Menu', callback_data: 'home' }],
+    [{ text: 'ℹ️ Why?', callback_data: `why:${ticker}` }, home$],
   ],
 })
+export const whyButtons = (ticker) => ({ inline_keyboard: [[{ text: '← Back', callback_data: `stk:${ticker}` }, home$]] })
 
 export function portfolio(items) {
-  if (!items.length) return '💼 <b>My stocks</b>\n\nNothing yet. Pick a stock to buy your first one.'
+  if (!items.length) return "💼 You don't own any stocks yet. Pick one to start:"
   const total = items.reduce((a, h) => a + h.usd, 0)
   return [
-    `💼 <b>My stocks</b> · ${usd(total)}`,
+    `💼 <b>Your stocks</b> · ${usd(total)}`,
     '',
-    ...items.map((h) => `• <b>${esc(h.t.ticker)}</b> ${qty(h.qty)} ${esc(h.t.symbol)} (${PROVIDER[h.t.type]}) ≈ ${usd(h.usd)}`),
+    ...items.map((h) => `<b>${esc(nameOf(h.t.ticker))}</b> · ${shares(Number(h.qty) * Number(h.t.multiplier || 1))} shares · ${usd(h.usd)}`),
   ].join('\n')
 }
 export const portfolioButtons = (items) => ({
   inline_keyboard: [
-    ...rows([...new Set(items.map((h) => h.t.ticker))].map((t) => ({ text: `Sell ${t}`, callback_data: `sl:${t}` })), 3),
-    [{ text: '🏠 Menu', callback_data: 'home' }],
+    ...rows([...new Set(items.map((h) => h.t.ticker))].map((t) => ({ text: `Sell ${nameOf(t)}`, callback_data: `sl:${t}` })), 2),
+    [home$],
   ],
 })
 
+export const buying = (usdt, ticker) => `⏳ Buying <b>$${esc(usdt)}</b> of ${esc(nameOf(ticker))}… this takes a few seconds.`
+export const selling = (ticker) => `⏳ Selling your ${esc(nameOf(ticker))}… this takes a few seconds.`
+
 /** Telegram's command menu (setMyCommands) and the text shown before a user presses Start. */
 export const COMMANDS = [
-  { command: 'start', description: 'Pick a stock and buy it at the real price' },
-  { command: 'portfolio', description: 'Your tokenized stocks, with a Sell button' },
+  { command: 'start', description: 'Buy a US stock' },
+  { command: 'portfolio', description: 'My stocks' },
 ]
 export const DESCRIPTION = 'Buy tokenized US stocks on BNB Chain safely. yostocks compares Ondo, xStocks and bStocks against the real stock price, blocks bad quotes, and buys from the best route through your Binance Agentic Wallet.'
-export const SHORT_DESCRIPTION = 'Tokenized US stocks on BNB Chain, with a safety check on every trade.'
+export const SHORT_DESCRIPTION = 'Buy US stocks with USDT, only at the real price.'
 
 export const PUBLIC_HELP = `<b>yostocks</b> · tokenized US stocks on BNB Chain, with a safety check on every trade.
 
@@ -88,8 +100,8 @@ You're in <b>demo mode</b>: try it on live mainnet data.
 /macro · see the x402 macro-calendar offer
 
 Buying, selling and strategies run on the owner's wallet only.`
-export const ownerOnly = '🔒 Trading runs on the owner\'s wallet only. In demo mode try /quote NVDA 10 or /analyze NVDA.'
-export const slowDown = (s) => `⏱ One quote every ${s} seconds in demo mode, please.`
+export const ownerOnly = "🔒 This is a demo: only the owner's wallet can buy or sell. Tap any stock to see its price."
+export const slowDown = (s) => `⏱ One price check every ${s} seconds in demo mode, please.`
 
 /** Guarded comparison of every provider for one ticker (output of scan()). */
 export function quoteCard({ ticker, usdt, ref, rows, best }, { ask = false, company } = {}) {
@@ -112,62 +124,46 @@ export const buttons = (id, usdt, symbol) => ({
   inline_keyboard: [[{ text: `✅ Swap ${usdt} USDT → ${symbol}`, callback_data: `buy:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]],
 })
 
-/** Sell quote from scanSell(). */
-export function sellCard(s, { ask = false, company } = {}) {
-  const { ticker, ref, row, qty: amount, usdtOut, ok, perShare, dev, why } = s
-  const lines = [
-    `<b>${esc(ticker)}</b>${company ? ` · ${esc(company)}` : ''} · sell`,
-    `Selling <b>${qty(amount)} ${esc(row.t.symbol)}</b> (${PROVIDER[row.t.type]})`,
-    `Reference price <b>${usd(ref)}</b> / share`,
-    '',
-  ]
-  if (!ok) lines.push(`⛔ <b>Not selling.</b> <i>${esc(why)}</i>`)
-  else {
-    lines.push(`✅ Sell price <b>${usd(perShare)}</b> / share · ${pct(dev)}`, `You receive ≈ <b>${Number(usdtOut).toFixed(4)} USDT</b>`)
-    if (ask) lines.push('<i>Confirm within 60 seconds.</i>')
-  }
-  return lines.join('\n')
-}
+const sellWhy = (w = '') => (/market opening hours/i.test(w) ? 'This version can only be sold while the US stock market is open.' : /liquidity/i.test(w) ? 'Nobody is buying it on-chain right now.' : /off reference/.test(w) ? "The price offered is too far from the real stock price, so I won't sell." : /hold/.test(w) ? w : 'The sale is not available right now.')
 
-export const sellButtons = (id, amount, symbol) => ({
-  inline_keyboard: [[{ text: `✅ Sell ${qty(amount)} ${symbol} → USDT`, callback_data: `sell:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]],
+/** Sell quote from scanSell(), in plain words. */
+export function sellCard(s, { company } = {}) {
+  const { ticker, row, qty: amount, usdtOut, ok, dev, why } = s
+  const name = esc(nameOf(ticker, company))
+  const n = shares(Number(amount) * row.multiplier)
+  if (!ok) return [`⚠️ <b>Can't sell ${name} right now.</b>`, esc(sellWhy(why))].join('\n')
+  return [`<b>Sell ${name}?</b>`, `${n} shares → about <b>${usd(usdtOut)}</b>`, `<i>That's ${vs(dev)}.</i>`].join('\n')
+}
+export const sellButtons = (id, usdtOut) => ({
+  inline_keyboard: [[{ text: `✅ Sell for ~${usd(usdtOut)}`, callback_data: `sell:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]],
 })
 
-export function sellReceipt({ ticker, company, row, qty: amount, ref, got, tx, orderId }) {
-  const avg = Number(got) / (Number(amount) * row.multiplier)
+export function sellReceipt({ ticker, company, row, qty: amount, got, tx }) {
   return [
-    '✅ <b>Sold</b>',
+    `✅ <b>Sold!</b> You got <b>${usd(got)}</b>`,
+    `for ${shares(Number(amount) * row.multiplier)} ${esc(nameOf(ticker, company))} shares.`,
     '',
-    `<b>${Number(got).toFixed(4)} USDT</b> for ${qty(amount)} ${esc(row.t.symbol)}`,
-    `${company ? `${esc(company)} (${esc(ticker)})` : esc(ticker)} on ${PROVIDER[row.t.type]}`,
-    `Avg price: <b>${usd(avg)}</b> / share (${pct((avg / ref - 1) * 100)} vs ${esc(ticker)})`,
-    'Network: BNB Smart Chain',
-    '',
-    `<a href="${esc(tx)}">View on BscScan ↗</a>`,
-    `<code>Order ${esc(orderId)}</code>`,
+    `<a href="${esc(tx)}">See the transaction ↗</a>`,
   ].join('\n')
 }
 
 export const submitting = (from, to, orderId) => `⏳ <b>Order submitted</b> · ${esc(from)} → ${esc(to)}\nConfirming on BNB Smart Chain… <code>${esc(orderId)}</code>`
 
-/** Caption for the filled-order receipt. `ref` and `best` come from the scan() that was traded. */
-export function receipt({ ticker, company, usdt, ref, best, got, tx, orderId }) {
-  const avg = Number(usdt) / (Number(got) * best.multiplier)
-  const vsRef = ref ? (avg / ref - 1) * 100 : null
+/** Buy receipt. `ref` and `best` come from the scan() that was traded. */
+export function receipt({ ticker, company, usdt, ref, best, got, tx }) {
+  const sh = Number(got) * best.multiplier
+  const avg = Number(usdt) / sh
   return [
-    '✅ <b>Order filled</b>',
+    `✅ <b>Done! You bought ${esc(nameOf(ticker, company))}</b>`,
     '',
-    `<b>${qty(got)} ${esc(best.t.symbol)}</b> · ${company ? `${esc(company)} (${esc(ticker)})` : esc(ticker)} on ${PROVIDER[best.t.type]}`,
-    `Paid: <b>${Number(usdt).toFixed(2)} USDT</b>`,
-    `Avg price: <b>${usd(avg)}</b> / share${vsRef != null ? ` (${pct(vsRef)} vs ${esc(ticker)})` : ''}`,
-    'Network: BNB Smart Chain',
+    `${shares(sh)} shares for <b>${usd(usdt)}</b>`,
+    `<i>${usd(avg)} per share${ref ? `, ${vs((avg / ref - 1) * 100)}` : ''}.</i>`,
     '',
-    `<a href="${esc(tx)}">View on BscScan ↗</a>`,
-    `<code>Order ${esc(orderId)}</code>`,
+    `<a href="${esc(tx)}">See the transaction ↗</a>`,
   ].join('\n')
 }
 
-export const stillPending = (orderId) => `⏳ <b>Still confirming.</b>\nThe order is submitted but not confirmed yet. It will show on BscScan shortly.\n<code>Order ${esc(orderId)}</code>`
+export const stillPending = (orderId) => `⏳ <b>Still confirming.</b>\nYour order went through but the network hasn't confirmed it yet. Check 💼 My stocks in a minute.\n<code>Order ${esc(orderId)}</code>`
 
 export function problem(message) {
   if (/auth signin|SESSION_EXPIRED|NOT_LOGGED_IN/.test(message)) return '🔐 <b>Wallet session expired.</b>\nSign in again: <code>baw auth signin</code>'
