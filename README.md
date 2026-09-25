@@ -15,7 +15,7 @@ Telegram, in plain English if you like, and it executes through **Binance Agenti
 
 ## Try it
 
-Open **[@yostocksbot](https://t.me/yostocksbot)** in Telegram. Anyone gets a read-only demo on live mainnet data:
+**Website: [yostocks.xyz](https://yostocks.xyz)** · Open **[@yostocksbot](https://t.me/yostocksbot)** in Telegram. Anyone gets a read-only demo on live mainnet data:
 
 | Command | What you see |
 |---|---|
@@ -106,7 +106,7 @@ npm start -w apps/bot
 
 ## Deploy (how @yostocksbot runs)
 
-Coolify on a VPS builds the `Dockerfile` from `main`; state lives on a persistent volume at `/data`
+Coolify on a VPS builds the bot from the root `Dockerfile` and the website from `apps/landing/Dockerfile` (nginx behind the host's TLS proxy at yostocks.xyz); state lives on a persistent volume at `/data`
 (wallet session, strategies, paid-report jobs). Runtime secrets: `TELEGRAM_BOT_TOKEN`, `YO_OWNER_CHAT_ID`,
 `OPENAI_API_KEY`, and **`BINANCE_INSTANCE_ID`**: any fixed random string. `baw` encrypts its session with a key
 derived from it (or from the machine identity, which changes on every container restart), so without it the
@@ -135,6 +135,7 @@ actually tested: removing any one of them turns the suite red.
 |---|---|
 | `apps/agent` | guard, swaps, x402 client, data merchants (`yo` CLI). No npm dependencies. |
 | `apps/bot` | Telegram bot, strategies, autopilot (`openai`, `zod`). |
+| `apps/landing` | [yostocks.xyz](https://yostocks.xyz): Astro + TypeScript static site. |
 | `apps/yoguard` | BNB Agent Studio seller agent (`bag init` scaffold + guard). |
 | `DX_LOG.md` | timestamped friction log behind our DX report. |
 | `probe/` | first research scripts. |
