@@ -14,6 +14,8 @@ ENV NODE_ENV=production \
     BINANCE_BAW_DIR=/data/baw \
     YO_DATA=/data/strategies.json \
     YO_JOBS=/data/analyst-jobs.json
+# A named volume copies this ownership on first mount, so the non-root user can write the session.
+RUN mkdir -p /data/baw && chown -R node:node /data
 VOLUME /data
 USER node
 CMD ["node", "apps/bot/bot.mjs"]
