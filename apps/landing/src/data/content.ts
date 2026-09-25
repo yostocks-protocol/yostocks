@@ -11,16 +11,16 @@ export interface Step { num: string; title: string; body: string }
 export const steps: Step[] = [
   { num: '01 · SCAN', title: 'Every provider, every time', body: 'Ondo, xStocks and bStocks tokens for the ticker come from the Binance RWA Data API. Each gets a live swap quote from your Agentic Wallet.' },
   { num: '02 · GUARD', title: 'Priced per share, checked against reality', body: 'Each quote becomes a price per share (dividend and split multiplier included) and must sit within 1% of the real US price. ~0 output, paused assets and empty pools are rejected.' },
-  { num: '03 · FILL', title: 'Best route, confirmed', body: 'You tap Confirm, the guard runs again, the swap executes on BSC mainnet, and the bot waits for a real fill before sending a receipt with the BscScan link.' },
+  { num: '03 · FILL', title: 'Best route, confirmed', body: 'You tap Buy, the guard runs again, the swap executes on BSC mainnet, and the bot waits for a real fill before sending a receipt with the BscScan link.' },
 ]
 
 /** `body` may contain inline <code>/<b>; it is authored here, never user input. */
 export interface Feature { icon: string; title: string; body: string }
 export const features: Feature[] = [
-  { icon: '🛡', title: 'Quote guard', body: 'Cheapest safe provider or no trade at all. Buttons expire after 60 seconds and work once.' },
-  { icon: '💱', title: 'Tap to buy, tap to sell', body: 'Pick a stock, tap <b>Buy $10</b>. Open <b>My stocks</b>, tap <b>Sell</b>. Every tap runs the guard again, so you never buy above or dump below the real price.' },
-  { icon: '🗣', title: 'Plain-English strategies', body: "<code>/strategy buy $10 of NVDA every Monday, skip earnings</code>. The AI translates, fixed code enforces the limits, anything it can't express is refused." },
-  { icon: '🤖', title: 'Autopilot with brakes', body: "Saved rules run on schedule through the guard, the rule's conditions and a daily spend cap. Every run is reported." },
+  { icon: '🛡', title: 'Quote guard', body: 'Cheapest safe provider or no trade at all. Tap <b>Buy $10</b> or <b>Sell</b>: the guard runs again right before the trade, and buttons expire after 60 seconds.' },
+  { icon: '🔗', title: 'Your wallet, your limits', body: 'Tap <b>Connect my Binance wallet</b> and approve in the Binance app. Every trade runs on your own Agentic Wallet, inside the spending limit you set there.' },
+  { icon: '📈', title: 'Profit at a glance', body: '<b>My stocks</b> shows what you own, your profit or loss since you bought, and a chart of it over time, built from your own order history.' },
+  { icon: '🗣', title: 'Plain-English autopilot', body: "<code>/strategy buy $10 of NVDA every Monday, skip earnings</code>. The AI translates; fixed code enforces the rule, the guard and a daily spend cap." },
   { icon: '💳', title: 'Pays for its own data', body: "<code>/macro</code> buys this week's CPI, jobs and Fed calendar agent-to-agent over <b>x402</b>, straight from the Agentic Wallet." },
   { icon: '🏪', title: 'Guard as a service', body: '<b>yoguard</b> is a BNB Agent Studio seller agent: other agents can buy a quote verdict over ERC-8183.' },
 ]
