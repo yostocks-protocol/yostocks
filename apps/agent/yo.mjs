@@ -85,6 +85,21 @@ export async function scan(ticker, usdt) {
   return { ticker, usdt, ref: m.ref, rows: judged, best }
 }
 
+/** Tokenized stocks held on BSC (any provider), with the wallet's own USD value. */
+export async function holdings() {
+  const [list, bal] = await Promise.all([
+    api('/v1/public/wallet-direct/buw/wallet/market/token/rwa/stock/detail/list/ai'),
+    baw('wallet', 'balance', '--binanceChainId', '56'),
+  ])
+  assertSignedIn(bal)
+  if (!bal.success) throw new Error(`wallet balance failed: ${JSON.stringify(bal.error)}`)
+  const stocks = new Map(list.filter((t) => t.chainId === '56' && PROVIDER[t.type]).map((t) => [t.contractAddress.toLowerCase(), t]))
+  return bal.data
+    .filter((b) => stocks.has(b.address?.toLowerCase()) && Number(b.balance) > 0)
+    .map((b) => ({ t: stocks.get(b.address.toLowerCase()), qty: b.balance, usd: Number(b.value ?? 0) }))
+    .sort((a, b) => b.usd - a.usd)
+}
+
 /** Quote selling `amount` tokens ('all' or a number) of the ticker token held with the most shares. */
 export async function scanSell(ticker, amount = 'all') {
   const [m, bal] = await Promise.all([market(ticker), baw('wallet', 'balance', '--binanceChainId', '56')])
