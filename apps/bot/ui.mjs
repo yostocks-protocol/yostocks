@@ -30,20 +30,39 @@ const shares = (n) => { const x = Number(n); return x >= 1 ? x.toFixed(2) : x.to
 const vs = (d) => (Math.abs(d) < 0.005 ? 'at the stock price' : `${Math.abs(d).toFixed(2)}% ${d > 0 ? 'above' : 'below'} the stock price`)
 const home$ = { text: '🏠 Home', callback_data: 'home' }
 const mine$ = { text: '💼 My stocks', callback_data: 'pf' }
+const connect$ = { text: '🔗 Connect my Binance wallet', callback_data: 'cw' }
 export const doneButtons = { inline_keyboard: [[mine$, home$]] }
 
 export const home = (owner) => [
   '👋 <b>Buy US stocks with USDT</b>',
   'Pick one, or type any ticker (like <code>AMD</code>).',
   'I only buy when the price matches the real stock price.',
-  ...(owner ? [] : ['', '<i>Demo: you can look around; only the owner can buy.</i>']),
+  ...(owner ? [] : ['', '<i>Connect your Binance wallet to buy. Until then you can look around.</i>']),
 ].join('\n')
-export const homeButtons = (owner) => ({
+/** canTrade: owner or a connected wallet. linked: a connected (non-owner) user, who also gets Disconnect. */
+export const homeButtons = (canTrade, linked = false) => ({
   inline_keyboard: [
     ...rows(TICKERS.map((t) => ({ text: NAMES[t], callback_data: `stk:${t}` })), 2),
-    ...(owner ? [[mine$]] : []),
+    canTrade ? [mine$, ...(linked ? [{ text: '🔌 Disconnect', callback_data: 'dw' }] : [])] : [connect$],
   ],
 })
+
+// ---- connect your own Agentic Wallet ----
+export const connect = ({ pairingCode }) => [
+  '🔗 <b>Connect your Binance wallet</b>',
+  '',
+  '1. Tap <b>Open Binance</b> below, or scan this QR code with the Binance app.',
+  `2. Check the code says <b>${esc(pairingCode)}</b> and approve.`,
+  '3. Set how much the agent may spend. You can change or revoke it in the app anytime.',
+  '',
+  '<i>This link works for 5 minutes. Your money stays in your wallet.</i>',
+].join('\n')
+export const connectButtons = (url) => ({ inline_keyboard: [[{ text: '📲 Open Binance', url }]] })
+export const connected = (address) => `✅ <b>Wallet connected</b>${address ? `\n<code>${esc(address)}</code>` : ''}\n\nPick a stock to buy. Your trades use your own wallet and its spending limit.`
+export const connectFailed = "⌛ The wallet wasn't connected (the code expired or was rejected). Nothing changed."
+export const disconnected = '🔌 Wallet disconnected. You can connect again anytime.'
+export const connectFirst = '🔒 Connect your Binance wallet to buy or sell. You can look at any stock without it.'
+export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
 
 /** One stock, in plain words. The provider comparison lives behind "Why?". */
