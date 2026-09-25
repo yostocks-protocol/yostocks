@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { scan, execute, scanSell, executeSell } from '../agent/yo.mjs'
+import { scan, execute, scanSell, executeSell, holdings } from '../agent/yo.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
@@ -109,6 +109,32 @@ export async function stockMeta(token) {
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process
 const pending = new Map()
 
+const newId = () => Math.random().toString(36).slice(2, 10)
+const isTicker = (t = '') => /^[A-Za-z.]{1,6}$/.test(t)
+
+/** Stock card: guard result for 10 USDT, and Buy $5/$10/$25 buttons for the owner. */
+async function showStock(chat, ticker, owner) {
+  const s = await scan(ticker.toUpperCase(), 10)
+  const m = await stockMeta((s.best ?? s.rows[0]).t)
+  const id = newId()
+  if (owner && s.best) pending.set(id, { ticker: s.ticker, at: Date.now() })
+  return card(chat, ui.stockCard(s, { company: m?.company, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best) })
+}
+
+async function showPortfolio(chat) {
+  const items = await holdings()
+  return say(chat, ui.portfolio(items), { reply_markup: items.length ? ui.portfolioButtons(items) : ui.homeButtons(true) })
+}
+
+async function sellOffer(chat, ticker, amount = 'all') {
+  const s = await scanSell(ticker, amount)
+  const m = await stockMeta(s.row.t)
+  if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
+  const id = newId()
+  pending.set(id, { cmd: '/sell', ticker, amount, at: Date.now() })
+  return card(chat, ui.sellCard(s, { ask: true, company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.qty, s.row.t.symbol) })
+}
+
 export async function onMessage(msg) {
   const chat = msg.chat.id
   if (String(chat) !== OWNER) return onPublic(chat, msg.text)
@@ -146,18 +172,13 @@ export async function onMessage(msg) {
     store.save(keep)
     return say(chat, ui.notice(keep.length < list.length ? `Stopped strategy #${rest[0]}.` : `No strategy #${rest[0] ?? ''}.`))
   }
+  if (name === '/portfolio') return showPortfolio(chat)
+  if (!name?.startsWith('/') && isTicker(name)) return showStock(chat, name, true) // just typed "nvda"
   const p = parse(msg.text)
   if (p.error) return say(chat, ui.notice(p.error))
-  if (!p.ticker) return card(chat, ui.HELP)
+  if (!p.ticker) return card(chat, ui.home(true), { reply_markup: ui.homeButtons(true) }) // /start and anything unknown
 
-  if (p.cmd === '/sell') {
-    const s = await scanSell(p.ticker, p.amount)
-    const m = await stockMeta(s.row.t)
-    if (!s.ok) return card(chat, ui.sellCard(s, { company: m?.company }), { photo: m?.photo ?? brand.logo })
-    const id = Math.random().toString(36).slice(2, 10)
-    pending.set(id, { ...p, at: Date.now() })
-    return card(chat, ui.sellCard(s, { ask: true, company: m?.company }), { photo: m?.photo ?? brand.logo, reply_markup: ui.sellButtons(id, s.qty, s.row.t.symbol) })
-  }
+  if (p.cmd === '/sell') return sellOffer(chat, p.ticker, p.amount)
   const s = await scan(p.ticker, p.usdt)
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const photo = m?.photo ?? brand.logo
@@ -169,6 +190,11 @@ export async function onMessage(msg) {
 
 export const PUBLIC_GAP_MS = 10_000
 const lastPublic = new Map() // chat → last quote time; ponytail: in-memory, fine for a demo bot
+const publicAllowed = (chat) => {
+  if (Date.now() - (lastPublic.get(chat) ?? 0) < PUBLIC_GAP_MS) return false
+  lastPublic.set(chat, Date.now())
+  return true
+}
 
 /** Demo mode for everyone but the owner: live read-only quotes, never the wallet's money. */
 async function onPublic(chat, text = '') {
@@ -176,9 +202,10 @@ async function onPublic(chat, text = '') {
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/market') return card(chat, `${ui.marketOffer(cmc.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   if (name === '/macro') return card(chat, `${ui.macroOffer(macro.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
-  if (!['/quote', '/analyze'].includes(name)) return ['/buy', '/sell', '/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.PUBLIC_HELP)
-  if (Date.now() - (lastPublic.get(chat) ?? 0) < PUBLIC_GAP_MS) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
-  lastPublic.set(chat, Date.now())
+  const bare = !name?.startsWith('/') && isTicker(name)
+  if (!['/quote', '/analyze'].includes(name) && !bare) return ['/buy', '/sell', '/strategy', '/strategies', '/stop', '/portfolio'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.home(false), { reply_markup: ui.homeButtons(false) })
+  if (!publicAllowed(chat)) return say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+  if (bare) return showStock(chat, name, false)
   if (name === '/analyze') {
     const ticker = arg?.toUpperCase()
     if (!/^[A-Z.]{1,10}$/.test(ticker ?? '')) return say(chat, ui.notice('usage: /analyze NVDA'))
@@ -206,8 +233,23 @@ async function onStrategy(chat, text) {
 
 export async function onCallback(q) {
   const chat = q.message.chat.id
-  const [action, id] = q.data.split(':')
+  const owner = String(chat) === OWNER
+  let [action, id, arg] = q.data.split(':')
+  // Navigation buttons: no state, keep the keyboard of the message they came from.
+  if (['home', 'oth', 'stk', 'pf', 'sl'].includes(action)) {
+    await tg('answerCallbackQuery', { callback_query_id: q.id })
+    if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner) })
+    if (action === 'oth') return say(chat, ui.askTicker)
+    if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown(PUBLIC_GAP_MS / 1000))
+    if (!owner) return say(chat, ui.ownerOnly)
+    return action === 'pf' ? showPortfolio(chat) : sellOffer(chat, id)
+  }
   const p = pending.get(id)
+  if (action === 'b' && p) { // "Buy $10" on a stock card
+    action = 'buy'
+    p.usdt = Number(arg)
+    if (!ui.AMOUNTS.includes(p.usdt)) p.ticker = null
+  }
   pending.delete(id) // one tap = one decision, even on double-tap
   await tg('answerCallbackQuery', { callback_query_id: q.id })
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })

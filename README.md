@@ -17,11 +17,8 @@ Telegram, in plain English if you like, and it executes through **Binance Agenti
 
 **Website: [yostocks.xyz](https://yostocks.xyz)** · Open **[@yostocksbot](https://t.me/yostocksbot)** in Telegram. Anyone gets a read-only demo on live mainnet data:
 
-| Command | What you see |
-|---|---|
-| `/quote NVDA 10` | Ondo vs xStocks vs bStocks for 10 USDT, per-share price vs the real NVDA price, the best safe route, the stock's logo |
-| `/macro` | the x402 offer for this week's CPI / jobs / Fed calendar |
-| `/start` | what the bot does |
+Press **Start** and tap a stock (NVDA, TSLA, AAPL, MSTR, META, GOOGL, SPY, QQQ) or just type a ticker. You get the
+real price, the best safe provider in one line, and why the others were skipped, on live mainnet data.
 
 Buying, selling, strategies and paid data run on the owner's wallet only.
 
@@ -30,7 +27,7 @@ Buying, selling, strategies and paid data run on the owner's wallet only.
 | | |
 |---|---|
 | 🛡 **Quote guard** | Every quote → per-share price → must be within ±1% of the reference (US price, or Ondo's oracle price per share off-hours). Rejects ~0-output quotes, paused assets (split, dividend, merger), no-liquidity routes. Picks the cheapest safe provider. |
-| 💱 **Buy / sell** | `/buy NVDA 10`, `/sell NVDA` with a Confirm button. Confirm re-runs the guard; buttons expire after 60 s and work once. Polls the order to FINISHED/FAILED, never reports a submission as a fill. |
+| 💱 **Buy / sell** | Tap a stock → **Buy $5 / $10 / $25**; **💼 My stocks** → **Sell**. Every tap re-runs the guard at that amount; buttons expire after 60 s and work once. (`/buy`, `/sell`, `/quote` still work for power users.) Polls the order to FINISHED/FAILED, never reports a submission as a fill. |
 | 🗣 **Plain-English strategies** | `/strategy buy $10 of NVDA every Monday 9pm WIB, skip earnings, max 0.5% premium` → an LLM (OpenAI `gpt-4o-mini`, strict JSON schema) turns it into a fixed rule shown back in plain words. Code, not the model, enforces bounds; anything the rule can't express ("sell if it drops 10%") is refused, not approximated. |
 | 🤖 **Autopilot** | Saved rules run on schedule through the same guard, the rule's conditions (earnings limits, premium cap) and a **daily spend cap** across all strategies. Every run is reported in Telegram. |
 | 💳 **Agent pays for its own data (x402)** | `/macro` buys this week's economic calendar from a Bazaar merchant for 0.1 USD1; the agent pays **agent-to-agent over x402** from the Agentic Wallet (402 → preview → user taps Pay → sign once → replay). `/analyze` is wired to BNB Agent Studio's Stock Analyze Agent (paused: it rejects every proof, see below). |
