@@ -1,6 +1,8 @@
 # yostocks Telegram bot + agent. State (wallet session, strategies, paid jobs) lives in /data.
 FROM node:22-slim
-# baw's optional keytar native build is skipped: without a keychain it stores the session in $BINANCE_BAW_DIR.
+# baw's optional keytar native build is skipped: without a keychain it stores the session in $BINANCE_BAW_DIR,
+# encrypted with a key from BINANCE_INSTANCE_ID (else the machine identity, which changes on every container
+# restart). Set BINANCE_INSTANCE_ID to a fixed secret at runtime or the wallet signs out on each redeploy.
 RUN npm i -g @binance/agentic-wallet@1.10.0 --ignore-scripts && npm cache clean --force
 WORKDIR /app
 COPY package.json package-lock.json ./
