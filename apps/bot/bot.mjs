@@ -1,7 +1,8 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { scan, execute, scanSell, executeSell, holdings } from '../agent/yo.mjs'
+import { scan, execute, scanSell, executeSell } from '../agent/yo.mjs'
+import * as portfolio from '../agent/portfolio.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
@@ -122,8 +123,10 @@ async function showStock(chat, ticker, owner) {
 }
 
 async function showPortfolio(chat) {
-  const items = await holdings()
-  return say(chat, ui.portfolio(items), { reply_markup: items.length ? ui.portfolioButtons(items) : ui.homeButtons(true) })
+  const r = await portfolio.report()
+  const reply_markup = r.rows.length ? ui.portfolioButtons(r.rows) : ui.homeButtons(true)
+  if (r.rows.length && r.chart) return card(chat, ui.portfolio(r), { photo: r.chart, reply_markup }).catch(() => say(chat, ui.portfolio(r), { reply_markup }))
+  return say(chat, ui.portfolio(r), { reply_markup })
 }
 
 async function sellOffer(chat, ticker, amount = 'all') {

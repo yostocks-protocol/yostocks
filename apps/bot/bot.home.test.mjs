@@ -1,20 +1,22 @@
 // Integration: the button-first flow (home → stock card → Buy $X, My stocks → Sell) against fakes.
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIXTURE, FAKE_BAW, addr, quote, mockFetch, scenario } from '../agent/test/helpers.mjs'
 
 const OWNER = 42
 const sc = scenario({})
-Object.assign(process.env, { YO_DATA: join(mkdtempSync(join(tmpdir(), 'yo-h-')), 's.json'), BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_POLL_MS: '1', TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER) })
+Object.assign(process.env, { YO_DATA: join(mkdtempSync(join(tmpdir(), 'yo-h-')), 's.json'), BAW: FAKE_BAW, FAKE_BAW: sc.file, YO_POLL_MS: '1', TELEGRAM_BOT_TOKEN: 'T', TELEGRAM_API: 'https://tg.test', YO_OWNER_CHAT_ID: String(OWNER), YO_QUICKCHART: 'https://chart.test' })
 const { onMessage, onCallback } = await import('./bot.mjs')
 
-let sent, restore, msgId
-before(() => { restore = mockFetch(FIXTURE, { tg: (method, body) => { sent.push({ method, ...body }); return ['sendMessage', 'sendPhoto'].includes(method) ? { message_id: ++msgId } : true } }) })
+const BOUGHT = Date.parse('2026-09-24T12:48:08Z')
+const kline = { [addr('NVDAB').toLowerCase()]: { success: true, data: { klineInfos: [0, 1, 2, 3].map((i) => [BOUGHT + i * 36e5, '0', '0', '0', String(220 + i), '0', 0]) } } }
+let sent, restore, msgId, charts
+before(() => { restore = mockFetch({ ...FIXTURE, kline }, { other: async (u, init) => { charts.push(JSON.parse(init.body)); return Response.json({ success: true, url: 'https://chart.test/pnl.png' }) }, tg: (method, body) => { sent.push({ method, ...body }); return ['sendMessage', 'sendPhoto'].includes(method) ? { message_id: ++msgId } : true } }) })
 after(() => restore())
-beforeEach(() => { sent = []; msgId = 0 })
+beforeEach(() => { sent = []; msgId = 0; charts = [] })
 
 const ref = Number(FIXTURE.dynamic[addr('NVDAon')].data.stockInfo.price)
 const mult = (s) => Number(FIXTURE.dynamic[addr(s)].data.tokenInfo.sharesMultiplier)
@@ -82,8 +84,12 @@ test('💼 My stocks lists holdings with value and a Sell button that opens the 
   const HELD = '0.022409841731513969'
   sc.set({ balances: [{ symbol: 'NVDAB', address: addr('NVDAB'), balance: HELD, value: '5.02' }, { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '4', value: '4' }],
     sellQuotes: { [addr('NVDAB')]: quote(Number(HELD) * mult('NVDAB') * ref) } })
+  sc.set({ ...JSON.parse(readFileSync(sc.file, 'utf8')), recent: [{ bookTime: '2026-09-24T12:48:08Z', fromToken: '0x55d398326f99059fF775485246999027B3197955', fromTokenQty: '5', toToken: addr('NVDAB'), toTokenActualQty: HELD }] })
   await tap('pf')
-  assert.match(texts().at(-1), /💼 <b>Your stocks<\/b> · \$5\.02[\s\S]*<b>NVIDIA<\/b> · 0\.0224 shares · \$5\.02/)
+  assert.match(texts().at(-1), /💼 <b>Your stocks<\/b> · \$5\.02\n📈 \+\$0\.02 \(\+0\.4%\) since you bought[\s\S]*<b>NVIDIA<\/b> · 0\.0224 shares · \$5\.02 · 📈 \+\$0\.02/)
+  const photo = sent.findLast((s) => s.method === 'sendPhoto')
+  assert.equal(photo.photo, 'https://chart.test/pnl.png', 'PnL chart is the picture')
+  assert.equal(charts[0].chart.data.datasets[0].data.length, 4, 'one point per hourly candle since the first buy')
   assert.ok(!texts().at(-1).includes('USDT'), 'stablecoins are not stocks')
   await tap(button('Sell NVIDIA'))
   assert.match(texts().at(-1), /Sell NVIDIA\?/)

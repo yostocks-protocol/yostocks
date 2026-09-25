@@ -65,13 +65,18 @@ export const stockButtons = (id, ticker, canBuy) => ({
 })
 export const whyButtons = (ticker) => ({ inline_keyboard: [[{ text: '← Back', callback_data: `stk:${ticker}` }, home$]] })
 
-export function portfolio(items) {
+const signed = (n) => `${n < 0 ? '−' : '+'}${usd(Math.abs(n))}`
+const change = (pnl, cost) => `${pnl < 0 ? '📉' : '📈'} ${signed(pnl)}${cost > 0 ? ` (${pnl < 0 ? '−' : '+'}${Math.abs((pnl / cost) * 100).toFixed(1)}%)` : ''}`
+
+/** My stocks: value, profit/loss on what's held, profit already taken from sales, one line per stock. */
+export function portfolio({ rows: items, value, cost, unrealized, realized }) {
   if (!items.length) return "💼 You don't own any stocks yet. Pick one to start:"
-  const total = items.reduce((a, h) => a + h.usd, 0)
   return [
-    `💼 <b>Your stocks</b> · ${usd(total)}`,
+    `💼 <b>Your stocks</b> · ${usd(value)}`,
+    ...(cost > 0 ? [`${change(unrealized, cost)} since you bought`] : []),
+    ...(Math.abs(realized) >= 0.005 ? [`💵 ${signed(realized)} from stocks you sold`] : []),
     '',
-    ...items.map((h) => `<b>${esc(nameOf(h.t.ticker))}</b> · ${shares(Number(h.qty) * Number(h.t.multiplier || 1))} shares · ${usd(h.usd)}`),
+    ...items.map((h) => `<b>${esc(nameOf(h.t.ticker))}</b> · ${shares(Number(h.qty) * Number(h.t.multiplier || 1))} shares · ${usd(h.usd)}${h.pnl == null ? '' : ` · ${change(h.pnl, h.cost)}`}`),
   ].join('\n')
 }
 export const portfolioButtons = (items) => ({
