@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { scan, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn } from '../agent/yo.mjs'
+import { scan, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn, prices } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
@@ -117,9 +117,16 @@ export async function stockMeta(token) {
     const m = await fetch(`https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa/meta/ai?chainId=56&contractAddress=${a}`, {
       headers: { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' },
     }).then((r) => r.json()).then((j) => j.data).catch(() => null)
-    metaCache.set(a, m?.icon ? { photo: `https://bin.bnbstatic.com${m.icon}`, company: m.companyInfo?.companyName } : null)
+    metaCache.set(a, m?.icon ? { photo: `https://bin.bnbstatic.com${m.icon}`, company: m.companyInfo?.companyName, about: m.companyInfo?.description } : null)
   }
   return metaCache.get(a)
+}
+
+let homeCache = { at: 0, list: [] }
+/** Home: live price + 24h change per stock (cached a minute), then the stock buttons. */
+async function showHome(chat, canTrade, isLinked = false) {
+  if (Date.now() - homeCache.at > 60_000) homeCache = { at: Date.now(), list: await prices(ui.TICKERS).catch(() => []) }
+  return card(chat, ui.home(homeCache.list), { reply_markup: ui.homeButtons(canTrade, isLinked) })
 }
 
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process
@@ -134,7 +141,7 @@ async function showStock(chat, ticker, owner) {
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const id = newId()
   if (owner && s.best) pending.set(id, { chat, ticker: s.ticker, at: Date.now() })
-  return card(chat, ui.stockCard(s, { company: m?.company, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
+  return card(chat, ui.stockCard(s, { company: m?.company, about: m?.about, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
 }
 
 /** Spendable USDT on BSC (null if unknown) and the address to top up. */
@@ -203,7 +210,7 @@ function onLinked(chat, text = '') {
   if (!name?.startsWith('/') && isTicker(name)) return showStock(chat, name, true)
   if (name === '/sell') { const p = parse(text); return p.error ? say(chat, ui.notice(p.error)) : sellOffer(chat, p.ticker, p.amount) }
   if (['/quote', '/analyze', '/macro', '/market'].includes(name)) return onPublic(chat, text)
-  return card(chat, ui.home(true), { reply_markup: ui.homeButtons(true, true) })
+  return showHome(chat, true, true)
 }
 
 export async function onMessage(msg) {
@@ -248,7 +255,7 @@ export async function onMessage(msg) {
   if (!name?.startsWith('/') && isTicker(name)) return showStock(chat, name, true) // just typed "nvda"
   const p = parse(msg.text)
   if (p.error) return say(chat, ui.notice(p.error))
-  if (!p.ticker) return card(chat, ui.home(true), { reply_markup: ui.homeButtons(true) }) // /start and anything unknown
+  if (!p.ticker) return showHome(chat, true) // /start and anything unknown
 
   if (p.cmd === '/sell') return sellOffer(chat, p.ticker, p.amount)
   const s = await scan(p.ticker, p.usdt)
@@ -276,7 +283,7 @@ async function onPublic(chat, text = '') {
   if (name === '/macro') return card(chat, `${ui.macroOffer(macro.lastPrice)}\n\n${ui.ownerOnly}`) // no Pay button
   const bare = !name?.startsWith('/') && isTicker(name)
   if (['/buy', '/sell', '/portfolio'].includes(name)) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
-  if (!['/quote', '/analyze'].includes(name) && !bare) return ['/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : card(chat, ui.home(false), { reply_markup: ui.homeButtons(false) })
+  if (!['/quote', '/analyze'].includes(name) && !bare) return ['/strategy', '/strategies', '/stop'].includes(name) ? say(chat, ui.ownerOnly) : showHome(chat, false)
   if (!publicAllowed(chat)) return say(chat, ui.slowDown())
   if (bare) return showStock(chat, name, false)
   if (name === '/analyze') {
@@ -316,7 +323,7 @@ async function callback(q, chat) {
   // Navigation buttons: no state, keep the keyboard of the message they came from.
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id })
-    if (action === 'home') return card(chat, ui.home(owner), { reply_markup: ui.homeButtons(owner, linked(chat)) })
+    if (action === 'home') return showHome(chat, owner, linked(chat))
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
     if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
     if (action === 'dw') return linked(chat) ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))

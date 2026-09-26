@@ -66,7 +66,7 @@ test('owner /start gets help; bad input gets usage', async () => {
   await onMessage(msg('/buy NVDA 99999'))
   await onMessage(msg('/quote'))
   const t = texts()
-  assert.match(t[0], /Buy US stocks with USDT[\s\S]*Pick one/)
+  assert.match(t[0], /Buy US stocks with USDT[\s\S]*<b>NVIDIA<\/b> · \$\d+\.\d\d · (🟢 \+|🔴 −)\d+\.\d%[\s\S]*Tap one for details/, 'live price + 24h change from the fixture')
   assert.match(t[1], /usage: \/buy NVDA 10 \(1–1000 USDT\)/)
   assert.match(t[2], /usage: \/quote/)
 })
