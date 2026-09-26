@@ -98,6 +98,7 @@ export const stockButtons = (id, ticker, canBuy, guest = false) => ({
     ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
     ...(guest ? [[{ ...connect$, callback_data: `cw:${ticker}` }]] : []),
     [...(canBuy ? [{ text: '✏️ Other', callback_data: `amt:${id}` }] : []), { text: 'ℹ️ Details', callback_data: `why:${ticker}` }, home$],
+    ...(canBuy ? [[{ text: '🎯 Buy if it drops', callback_data: `dip:${id}` }]] : []),
   ],
 })
 export const askAmount = (ticker) => `✏️ How much USDT of <b>${esc(nameOf(ticker))}</b>? Type an amount from $1 to $1,000.`
@@ -124,10 +125,65 @@ export function portfolio({ rows: items, value, cost, unrealized, realized }) {
 }
 export const portfolioButtons = (items) => ({
   inline_keyboard: [
-    ...rows([...new Set(items.map((h) => h.t.ticker))].map((t) => ({ text: `Sell ${nameOf(t)}`, callback_data: `sl:${t}` })), 2),
+    ...[...new Set(items.map((h) => h.t.ticker))].map((t) => [{ text: `Sell ${nameOf(t)}`, callback_data: `sl:${t}` }, { text: '🎯 Sell higher', callback_data: `tp:${t}` }]),
+    [orders$, { text: '🛡 Safety', callback_data: 'sf' }],
     [home$],
   ],
 })
+
+// ---- agentic: limit orders that wait in the wallet, and the wallet's own brakes ----
+const pctOf = (price, ref) => `${price < ref ? '−' : '+'}${Math.abs((price / ref - 1) * 100).toFixed(0)}%`
+export const DIPS = [3, 5, 10]
+export const TPS = [5, 10, 20]
+export const dipCard = (ticker, ref) => `🎯 <b>Buy ${esc(nameOf(ticker))} if it drops</b>\nNow ${usd(ref)} a share. Pick a price: the order waits in your Binance wallet and buys by itself.`
+export const dipButtons = (id, ref) => ({ inline_keyboard: [DIPS.map((d) => ({ text: `−${d}% · ${usd(ref * (1 - d / 100))}`, callback_data: `dp:${id}:${d}` })), [home$]] })
+export const dipAmount = (ticker, price, ref) => `🎯 <b>${esc(nameOf(ticker))} at ${usd(price)}</b> (${pctOf(price, ref)})\nHow much should I buy when it gets there?`
+export const dipAmountButtons = (id) => ({ inline_keyboard: [AMOUNTS.map((a) => ({ text: `$${a}`, callback_data: `da:${id}:${a}` })), [home$]] })
+export const confirmDip = (ticker, usdt, price, ref) => `Buy <b>$${esc(usdt)}</b> of <b>${esc(nameOf(ticker))}</b> if a share drops to <b>${usd(price)}</b> (${pctOf(price, ref)})?\n<i>Nothing is bought now. Cancel anytime in 📋 Orders.</i>`
+export const tpCard = (ticker, ref) => `🎯 <b>Sell ${esc(nameOf(ticker))} higher</b>\nNow ${usd(ref)} a share. Pick a price: all your shares sell by themselves when it gets there.`
+export const tpButtons = (id, ref) => ({ inline_keyboard: [TPS.map((d) => ({ text: `+${d}% · ${usd(ref * (1 + d / 100))}`, callback_data: `tpp:${id}:${d}` })), [home$]] })
+export const confirmTp = (ticker, price, ref) => `Sell all your <b>${esc(nameOf(ticker))}</b> when a share reaches <b>${usd(price)}</b> (${pctOf(price, ref)})?\n<i>Nothing is sold now. Cancel anytime in 📋 Orders.</i>`
+export const placeButtons = (action, id) => ({ inline_keyboard: [[{ text: '✅ Place order', callback_data: `${action}:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+const orders$ = { text: '📋 Orders', callback_data: 'ord' }
+export const orderButtons = { inline_keyboard: [[orders$, home$]] }
+const orderLine = (o) => o.side === 'buy' ? `Buy $${esc(o.usdt)} of ${esc(nameOf(o.ticker))} at ${usd(o.price)}` : `Sell ${esc(nameOf(o.ticker))} at ${usd(o.price)}`
+export const orderPlaced = (o) => `📌 <b>Order placed.</b> ${orderLine(o)}.\nNothing ${o.side === 'buy' ? 'is bought' : 'is sold'} yet: it waits in your Binance wallet, and I'll message you when it fills.`
+const STATUS = { WORKING: 'waiting', TRIGGERED: 'filling now', PENDING: 'filling now', FINISHED: 'filled', FAILED: 'failed', EXPIRED: 'expired', CANCELED: 'canceled' }
+export function ordersList(list) {
+  if (!list.length) return '📋 <b>No open orders.</b>\nOpen a stock and tap 🎯 to buy if it drops, or 🎯 in My stocks to sell higher.'
+  return ['📋 <b>Your orders</b>', '', ...list.map((o, i) => `${i + 1}. ${o.side === 'buy' ? '🟢' : '🔴'} ${orderLine(o)} · <i>${STATUS[o.status] ?? esc(o.status)}</i>`)].join('\n')
+}
+export const ordersButtons = (list) => ({ inline_keyboard: [...list.filter((o) => o.status === 'WORKING').map((o, i) => [{ text: `✖ Cancel ${i + 1}`, callback_data: `cx:${o.strategyId}` }]), [home$]] })
+/** A watched order reached a final state. */
+export function orderDone(o) {
+  if (o.status === 'FINISHED') return `✅ <b>Your order filled!</b> ${orderLine(o)}.${o.txHash ? `\n<a href="https://bscscan.com/tx/${esc(o.txHash)}">See the transaction ↗</a>` : ''}`
+  if (o.status === 'EXPIRED') return `⌛ <b>Order expired.</b> ${orderLine(o)}: the price never got there, so nothing happened.`
+  if (o.status === 'CANCELED') return `✖ <b>Order canceled.</b> ${orderLine(o)}.`
+  return `⚠️ <b>Order failed on-chain.</b> ${orderLine(o)}. Nothing moved.`
+}
+const HANDLING = { AutoReject: 'Blocked automatically', NeedConfirmation: 'You approve in the app' }
+const until = (t) => { const d = new Date(t); return Number.isNaN(+d) ? '' : `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC` }
+/** The wallet's brakes, in plain words. approvals: list, or null if it couldn't be read. */
+export function safetyCard({ settings: s, approvals }, open) {
+  const rows = [
+    ['Daily limit', `${usd(s.dailyLimit)} (${usd(s.quotaLeft)} left today)`],
+    ['Risky trades', HANDLING[s.abnormalTxnHandling] ?? String(s.abnormalTxnHandling ?? '?')],
+    ...(s.sessionExpireTime ? [['Connected', `until ${until(s.sessionExpireTime)}`]] : []),
+    ['Approvals', approvals ? String(approvals.length) : 'unknown'],
+    ['Open orders', String(open)],
+  ]
+  const w = Math.max(...rows.map(([k]) => k.length)) + 2
+  return [
+    "🛡 <b>Your wallet's safety</b>",
+    `<pre>${rows.map(([k, v]) => esc(k.padEnd(w) + v)).join('\n')}</pre>`,
+    '<i>Change limits in the Binance app: Agentic Wallet → Settings.</i>',
+    ...(approvals?.length && open ? ['', 'Approvals stay while you have open orders: they need them to fill.'] : []),
+  ].join('\n')
+}
+export const safetyButtons = (revokeId, n) => ({ inline_keyboard: [...(revokeId ? [[{ text: `🧹 Remove ${n} approval${n > 1 ? 's' : ''}`, callback_data: `rv:${revokeId}` }]] : []), [{ text: '🔌 Disconnect', callback_data: 'dw' }, home$]] })
+export const confirmRevoke = (list) => `🧹 Remove these token approvals?\n${list.map((a) => `• ${esc(a.tokenSymbol)} → ${esc(a.spenderName ?? a.spender)}`).join('\n')}\n<i>Each is a small on-chain transaction. Your next trade re-approves what it needs.</i>`
+export const revokeButtons = (id) => ({ inline_keyboard: [[{ text: '🧹 Remove', callback_data: `rvok:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+export const revoked = (out) => [`🧹 <b>Submitted.</b> ${out.filter((x) => x.ok).length} of ${out.length} removals sent; they count once confirmed on-chain.`, ...out.filter((x) => !x.ok).map((x) => `⚠️ ${esc(x.tokenSymbol)}: ${esc(x.error ?? 'failed')}`)].join('\n')
 
 export const buying = (usdt, ticker) => `⏳ Buying <b>$${esc(usdt)}</b> of ${esc(nameOf(ticker))}… this takes a few seconds.`
 export const selling = (ticker) => `⏳ Selling your ${esc(nameOf(ticker))}… this takes a few seconds.`

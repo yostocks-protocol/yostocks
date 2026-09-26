@@ -67,7 +67,7 @@ test('stock card: name, price, one verdict line; provider details only behind De
   const c = ui.stockCard({ ticker: 'NVDA', ref: 225.93, rows: [best], best })
   assert.match(c, /^<b>NVIDIA<\/b> · NVDA\n<b>\$225\.93<\/b>\n\n✅ <b>Fair price<\/b> · via bStocks, 0\.02% above the stock price$/)
   assert.match(ui.stockCard({ ticker: 'NVDA', ref: 1, rows: [], best: undefined }), /Buying paused/)
-  assert.deepEqual(ui.stockButtons('i', 'NVDA', true).inline_keyboard.map((r) => r.map((b) => b.text)), [['Buy $5', 'Buy $10', 'Buy $25'], ['✏️ Other', 'ℹ️ Details', '🏠 Home']])
+  assert.deepEqual(ui.stockButtons('i', 'NVDA', true).inline_keyboard.map((r) => r.map((b) => b.text)), [['Buy $5', 'Buy $10', 'Buy $25'], ['✏️ Other', 'ℹ️ Details', '🏠 Home'], ['🎯 Buy if it drops']])
 })
 
 test('market card: human summary from the real CMC payload, with a sentiment takeaway, no raw JSON', async () => {
