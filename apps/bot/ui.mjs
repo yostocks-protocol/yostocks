@@ -78,7 +78,7 @@ const firstSentence = (t = '') => { const x = t.split(/(?<=\.)\s/)[0] ?? ''; ret
 const arrow = (pct) => `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`
 
 /** One stock: name, price, what the company does, a small facts table, one verdict line. Provider details sit behind Details. */
-export function stockCard({ ticker, ref, best, rows }, { company, about } = {}) {
+export function stockCard({ ticker, ref, best, rows, offline }, { company, about } = {}) {
   const f = facts(rows)
   const w = Math.max(0, ...f.rows.map(([k]) => k.length)) + 2
   return [
@@ -86,10 +86,10 @@ export function stockCard({ ticker, ref, best, rows }, { company, about } = {}) 
     `<b>${usd(ref)}</b>${Number.isFinite(f.change) ? `   ${arrow(f.change)} today` : ''}`,
     ...(about ? [`<i>${esc(firstSentence(about))}</i>`] : []),
     ...(f.rows.length ? ['', `<pre>${f.rows.map(([k, v]) => esc(k.padEnd(w) + v)).join('\n')}</pre>`] : []),
-    '',
-    best
+    // offline: no wallet session to quote with, so no verdict; the card still shows the stock.
+    ...(offline ? [] : ['', best
       ? `✅ <b>Fair price</b> · via ${PROVIDER[best.t.type]}, ${vs(best.dev)}`
-      : "⚠️ <b>Buying paused</b> · on-chain prices don't match the real price right now",
+      : "⚠️ <b>Buying paused</b> · on-chain prices don't match the real price right now"]),
   ].join('\n')
 }
 /** canBuy: amount buttons + Other. guest: a good price but no wallet yet, so one Connect button that comes back to this stock. */
@@ -206,7 +206,7 @@ export function receipt({ ticker, company, usdt, ref, best, got, tx }) {
 export const stillPending = (orderId) => `⏳ <b>Still confirming.</b>\nYour order went through but the network hasn't confirmed it yet. Check 💼 My stocks in a minute.\n<code>Order ${esc(orderId)}</code>`
 
 export function problem(message) {
-  if (/auth signin|SESSION_EXPIRED|NOT_LOGGED_IN/.test(message)) return '🔐 <b>Wallet session expired.</b>\nSign in again: <code>baw auth signin</code>'
+  if (/auth signin|SESSION_EXPIRED|NOT_LOGGED_IN/.test(message)) return '🔐 <b>Please connect Binance again.</b>\nTap 🏠 Home, then Connect Binance to buy.'
   // x402 merchant said no before settling: the signed authorization was never executed, so no funds moved.
   const x402 = /rejected the paid request.*?(payment_rejected|settlement_failed)"?(?:,\s*"reason":\s*"([a-z_]+)")?/.exec(message)
   if (x402) return `⚠️ <b>Payment didn't go through, nothing was charged.</b>\nThe provider said: <code>${esc(x402[1])}${x402[2] ? ` (${esc(x402[2])})` : ''}</code>. You can try again.`

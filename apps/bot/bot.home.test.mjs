@@ -278,3 +278,15 @@ test('owner: Disconnect signs the server wallet out (dir kept), then Connect fro
     await tap('cw') // leave the owner connected for other tests
   }
 })
+
+test('no wallet session to quote with: a guest still sees the stock card and Connect, never a baw command', async () => {
+  sc.set({ auth: 'SESSION_EXPIRED' })
+  await tap('stk:META', 91)
+  const c = texts().at(-1)
+  assert.match(c, /<b>Meta<\/b> · META\n<b>\$\d+\.\d\d<\/b>/)
+  assert.ok(!/baw|Fair price|Buying paused/.test(c), 'no verdict without quotes')
+  assert.ok(kb().some((b) => b.text === '🔗 Connect Binance to buy'))
+  await tap('why:META', 92)
+  assert.match(texts().at(-1), /Connect Binance first/)
+  sc.set({})
+})

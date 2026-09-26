@@ -31,7 +31,7 @@ test('quote card puts the best route first, then safe, then rejected; escapes pr
 })
 
 test('problem(): expired wallet sessions get a clear sign-in hint, other errors are escaped', () => {
-  assert.match(ui.problem('Agentic Wallet SESSION_EXPIRED: run `baw auth signin`'), /Wallet session expired[\s\S]*baw auth signin/)
+  assert.match(ui.problem('Agentic Wallet SESSION_EXPIRED: run `baw auth signin`'), /Please connect Binance again/)
   assert.match(ui.problem('swap rejected: <x>'), /<code>swap rejected: &lt;x&gt;<\/code>/)
 })
 
