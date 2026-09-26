@@ -33,11 +33,11 @@ export const home = (prices = []) => [
   '',
   'Tap one for details, or type any ticker (like <code>AMD</code>).',
 ].join('\n')
-/** canTrade: owner or a connected wallet. linked: a connected (non-owner) user, who also gets Disconnect. */
-export const homeButtons = (canTrade, linked = false) => ({
+/** canTrade: a connected wallet (the owner's or the user's own): My stocks + Disconnect, else Connect. */
+export const homeButtons = (canTrade) => ({
   inline_keyboard: [
     ...rows(TICKERS.map((t) => ({ text: NAMES[t], callback_data: `stk:${t}` })), 2),
-    canTrade ? [mine$, ...(linked ? [{ text: '🔌 Disconnect', callback_data: 'dw' }] : [])] : [connect$],
+    canTrade ? [mine$, { text: '🔌 Disconnect', callback_data: 'dw' }] : [connect$],
   ],
 })
 

@@ -144,7 +144,8 @@ actually tested: removing any one of them turns the suite red.
 
 - Each connected wallet is a baw session stored on the bot's server (`/data/wallets/<chat id>`, mode 700). The user's
   funds never leave their wallet, and the session can only spend within the limit set in the Binance app, which can
-  also revoke it. Sessions last up to 7 days, then the user connects again.
+  also revoke it. Sessions last up to 7 days, then the user connects again. The owner too: 🔌 Disconnect and 🔗 Connect work on the
+  server wallet, so re-login never needs shell access.
 - One agent session per wallet: connecting the same wallet elsewhere signs the bot out.
 - `/analyze` is paused until BNB's Stock Analyze Agent accepts Agentic Wallet payments (#29).
 - yoguard sells over ERC-8183 on testnet; paid x402 selling needs B402 merchant credentials whose application form is restricted to the organizer's Google Workspace.
