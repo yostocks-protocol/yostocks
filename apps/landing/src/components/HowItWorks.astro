@@ -3,11 +3,11 @@ import { steps } from '../data/content'
 ---
 <section class="block" id="how">
   <p class="kicker">How it works</p>
-  <h2>Quote everything. <strong>Trust nothing blindly.</strong></h2>
-  <div class="steps">
-    {steps.map((s) => (
-      <div class="card step">
-        <p class="num mono">{s.num}</p>
+  <h2>Three taps to <strong>your first stock</strong></h2>
+  <div class="grid-3">
+    {steps.map((s, i) => (
+      <div class="gcard reveal" style={`--delay: ${0.1 * (i + 1)}s`}>
+        <p class="step-num mono">{s.num}</p>
         <h3>{s.title}</h3>
         <p>{s.body}</p>
       </div>

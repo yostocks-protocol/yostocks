@@ -1,0 +1,54 @@
+---
+import { faqs, links } from '../data/content'
+---
+<section class="block" id="faq">
+  <div class="cta-faq">
+    <div class="cta-card grad-live reveal">
+      <h2>Your first US stock is one tap away</h2>
+      <p>Open @yostocksbot in Telegram, any day, any hour.</p>
+      <a href={links.bot} class="btn-dark" target="_blank" rel="noopener">Open the bot</a>
+    </div>
+    <div class="faq">
+      {faqs.map((f, i) => (
+        <details class="faq-item" open={i === 0} name="faq">
+          <summary>{f.q}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></summary>
+          <p>{f.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="foot-grid">
+    <div>
+      <a class="nav-logo" href="/"><img src="/yo.png" alt="" width="28" height="28" />yostocks</a>
+      <p class="foot-note">US stocks in Telegram, 24/7, only at the real price.</p>
+    </div>
+    <div>
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#why">Why yostocks</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Build</h4>
+      <ul>
+        <li><a href={links.repo} target="_blank" rel="noopener">GitHub</a></li>
+        <li><a href="#proof">Mainnet proof</a></li>
+        <li><a href={links.dxLog} target="_blank" rel="noopener">DX log</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Try it</h4>
+      <p class="foot-note">No wallet needed to look around.</p>
+      <a href={links.bot} class="btn-cta small" target="_blank" rel="noopener">Open @yostocksbot</a>
+    </div>
+  </div>
+  <div class="foot-bar">
+    <span>© 2026 yostocks · Built for BNB Hack: Tokenized Stocks Edition</span>
+    <span>Not financial advice.</span>
+  </div>
+</footer>

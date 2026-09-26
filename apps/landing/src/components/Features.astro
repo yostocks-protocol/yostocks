@@ -2,11 +2,11 @@
 import { features } from '../data/content'
 ---
 <section class="block" id="features">
-  <p class="kicker">What you get</p>
-  <h2>A careful agent, <strong>in a chat you already use</strong></h2>
-  <div class="features">
+  <p class="kicker">Everything in one chat</p>
+  <h2>Small bot, <strong>serious engine</strong></h2>
+  <div class="grid-3">
     {features.map((f) => (
-      <div class="card feature">
+      <div class="gcard feature reveal">
         <div class="ico" aria-hidden="true">{f.icon}</div>
         <h3>{f.title}</h3>
         <p set:html={f.body} />
