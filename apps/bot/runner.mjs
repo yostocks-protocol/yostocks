@@ -3,7 +3,7 @@
 // the cap is the brake.
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] // Date#getUTCDay order
 export const GRACE_MS = 2 * 60 * 60 * 1000 // run late up to 2h (bot was down), then count it as missed
-export const DAILY_CAP = Number(process.env.YO_DAILY_CAP ?? 50) // USDT across all strategies per UTC day
+export const DAILY_CAP = Number(process.env.YO_DAILY_CAP ?? 50) // USDT per chat (= per wallet) across its strategies, per UTC day
 
 /** Start (ms) of the most recent scheduled slot at or before `now`. */
 export function lastSlot(rule, now) {
@@ -31,10 +31,11 @@ const spentToday = (list, now) => {
 }
 
 /**
- * One pass over all strategies. deps: { store, scan, execute, say, now }.
+ * One pass over all strategies. deps: { store, scan, execute, say, now, inWallet?, canTrade? }.
+ * inWallet(chat, fn) runs fn against that chat's wallet session; canTrade(chat) is false once it disconnected.
  * Returns what happened per strategy id, for logs/tests.
  */
-export async function runOnce({ store, scan, execute, say, now = Date.now() }) {
+export async function runOnce({ store, scan, execute, say, now = Date.now(), inWallet = (chat, fn) => fn(), canTrade = () => true }) {
   const out = {}
   for (const s of store.load()) {
     const state = due(s, now)
@@ -42,9 +43,11 @@ export async function runOnce({ store, scan, execute, say, now = Date.now() }) {
     const slot = new Date(lastSlot(s.rule, now)).toISOString()
     let result
     try {
-      result = state === 'missed' ? { status: 'SKIPPED', why: 'missed its slot by more than 2h' } : await attempt(s, now, { store, scan, execute })
+      result = state === 'missed' ? { status: 'SKIPPED', why: 'missed its slot by more than 2h' }
+        : !canTrade(s.chat) ? { status: 'SKIPPED', why: 'wallet not connected' }
+        : await inWallet(s.chat, () => attempt(s, now, { store, scan, execute }))
     } catch (e) {
-      result = { status: 'ERROR', why: e.message }
+      result = { status: 'ERROR', why: /SESSION_EXPIRED|NOT_LOGGED_IN/.test(e.message) ? 'connect Binance again in the bot' : e.message }
     }
     // Persist before notifying: a crash after this line can't re-run the same slot.
     const list = store.load()
@@ -55,15 +58,16 @@ export async function runOnce({ store, scan, execute, say, now = Date.now() }) {
       store.save(list)
     }
     out[s.id] = result
-    const head = `strategy #${s.id} · ${s.rule.ticker} ${s.rule.usdt} USDT`
-    await say(s.chat, result.status === 'FINISHED' ? `✓ ${head} filled ${result.symbol}\n${result.tx}` : `${result.status === 'ERROR' ? '✗' : '⏭'} ${head} ${result.status.toLowerCase()}: ${result.why}`).catch(() => {})
+    const what = `$${s.rule.usdt} of ${s.rule.ticker}`
+    await say(s.chat, result.status === 'FINISHED' ? `✅ Bought ${what} (${result.symbol})\n${result.tx}`
+      : result.status === 'ERROR' ? `✗ Couldn't buy ${what}: ${result.why}` : `⏭ Skipped ${what}: ${result.why}`).catch(() => {})
   }
   return out
 }
 
 async function attempt(s, now, { store, scan, execute }) {
   const r = s.rule
-  const spent = spentToday(store.load(), now)
+  const spent = spentToday(store.load().filter((x) => x.chat === s.chat), now) // each wallet has its own cap
   if (spent + r.usdt > DAILY_CAP) return { status: 'SKIPPED', why: `daily cap ${DAILY_CAP} USDT reached (spent ${spent})` }
 
   const q = await scan(r.ticker, r.usdt)

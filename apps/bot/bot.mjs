@@ -5,7 +5,7 @@ import { scan, market, execute, scanSell, executeSell, baw, wallet, USDT, assert
 import * as portfolio from '../agent/portfolio.mjs'
 import * as orders from '../agent/orders.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
-import { runOnce } from './runner.mjs'
+import { runOnce, DAILY_CAP } from './runner.mjs'
 import * as ui from './ui.mjs'
 import * as analyst from '../agent/analyst.mjs'
 import * as cmc from '../agent/cmc.mjs'
@@ -364,11 +364,52 @@ async function onStrategy(chat, text) {
 }
 
 // ---- agentic actions: limit orders that wait in the wallet, and the wallet's brakes ----
-const AGENT = ['dip', 'dp', 'da', 'lb', 'tp', 'tpp', 'ls', 'ord', 'cx', 'sf', 'rv', 'rvok']
+const AGENT = ['dip', 'dp', 'da', 'lb', 'tp', 'tpp', 'ls', 'ord', 'cx', 'sf', 'rv', 'rvok', 'ai', 'aia', 'aif', 'ais', 'ail', 'aist']
 const mine = (id, chat) => { const p = pending.get(id); return p?.chat === chat ? p : null } // offers are bound to their chat
 const expired = (chat) => say(chat, ui.notice('This button has expired. Open the stock again.'))
 
 async function agentAction(chat, action, id, arg) {
+  if (action === 'ai') { // auto-invest, from a stock card: amount → how often → start
+    const p = mine(id, chat)
+    if (!p?.ticker) return expired(chat)
+    const a = newId()
+    pending.set(a, { chat, ticker: p.ticker, at: Date.now() })
+    return say(chat, ui.autoCard(p.ticker, DAILY_CAP), { reply_markup: ui.autoAmountButtons(a) })
+  }
+  if (action === 'aia') {
+    const p = mine(id, chat)
+    if (!p?.ticker || !ui.AMOUNTS.includes(Number(arg))) return expired(chat)
+    const b = newId()
+    pending.set(b, { ...p, usdt: Number(arg) })
+    return say(chat, ui.autoFreq(p.ticker, Number(arg)), { reply_markup: ui.autoFreqButtons(b) })
+  }
+  if (action === 'aif') {
+    const p = mine(id, chat)
+    if (!p?.usdt || !['day', 'week'].includes(arg)) return expired(chat)
+    const rule = { ticker: p.ticker, usdt: p.usdt, every: arg, weekday: arg === 'week' ? 'mon' : null, hourUtc: ui.AUTO_HOUR_UTC, skipEarnings: false, maxPremiumPct: null, unsupported: [] }
+    if (validate(rule).length) return say(chat, ui.strategyRejected(validate(rule)))
+    const c = newId()
+    pending.set(c, { chat, rule, at: Date.now() })
+    return say(chat, ui.confirmAuto(rule), { reply_markup: ui.autoStartButtons(c) })
+  }
+  if (action === 'ais') {
+    const p = mine(id, chat)
+    pending.delete(id)
+    if (!p?.rule) return expired(chat)
+    store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
+    return say(chat, ui.autoSaved(p.rule), { reply_markup: ui.autoSavedButtons })
+  }
+  if (action === 'ail') {
+    const list = store.load().filter((s) => s.chat === chat)
+    return say(chat, ui.autoList(list), { reply_markup: ui.autoListButtons(list) })
+  }
+  if (action === 'aist') {
+    const list = store.load()
+    const s = list.find((x) => x.id === id && x.chat === chat)
+    if (!s) return expired(chat)
+    store.save(list.filter((x) => x !== s))
+    return say(chat, ui.autoStopped(s.rule), { reply_markup: ui.autoSavedButtons })
+  }
   if (action === 'dip') { // from a stock card: pick how far it should drop
     const p = mine(id, chat)
     if (!p?.ticker) return expired(chat)
@@ -590,7 +631,7 @@ async function main() {
     if (running) return
     running = true
     try {
-      const done = await runOnce({ store, scan, execute, say: (chat, text) => say(chat, ui.autopilot(text)) })
+      const done = await runOnce({ store, scan, execute, say: (chat, text) => say(chat, ui.autopilot(text)), inWallet: (chat, fn) => wallet.run(walletDir(chat), fn), canTrade: linked })
       if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
       await watchOrders()
     } catch (e) {

@@ -98,7 +98,7 @@ export const stockButtons = (id, ticker, canBuy, guest = false) => ({
     ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
     ...(guest ? [[{ ...connect$, callback_data: `cw:${ticker}` }]] : []),
     [...(canBuy ? [{ text: '✏️ Other', callback_data: `amt:${id}` }] : []), { text: 'ℹ️ Details', callback_data: `why:${ticker}` }, home$],
-    ...(canBuy ? [[{ text: '🎯 Buy if it drops', callback_data: `dip:${id}` }]] : []),
+    ...(canBuy ? [[{ text: '🎯 Buy if it drops', callback_data: `dip:${id}` }, { text: '🔁 Auto-invest', callback_data: `ai:${id}` }]] : []),
   ],
 })
 export const askAmount = (ticker) => `✏️ How much USDT of <b>${esc(nameOf(ticker))}</b>? Type an amount from $1 to $1,000.`
@@ -126,7 +126,7 @@ export function portfolio({ rows: items, value, cost, unrealized, realized }) {
 export const portfolioButtons = (items) => ({
   inline_keyboard: [
     ...[...new Set(items.map((h) => h.t.ticker))].map((t) => [{ text: `Sell ${nameOf(t)}`, callback_data: `sl:${t}` }, { text: '🎯 Sell higher', callback_data: `tp:${t}` }]),
-    [orders$, { text: '🛡 Safety', callback_data: 'sf' }],
+    [orders$, autos$, { text: '🛡 Safety', callback_data: 'sf' }],
     [home$],
   ],
 })
@@ -184,6 +184,25 @@ export const safetyButtons = (revokeId, n) => ({ inline_keyboard: [...(revokeId 
 export const confirmRevoke = (list) => `🧹 Remove these token approvals?\n${list.map((a) => `• ${esc(a.tokenSymbol)} → ${esc(a.spenderName ?? a.spender)}`).join('\n')}\n<i>Each is a small on-chain transaction. Your next trade re-approves what it needs.</i>`
 export const revokeButtons = (id) => ({ inline_keyboard: [[{ text: '🧹 Remove', callback_data: `rvok:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 export const revoked = (out) => [`🧹 <b>Submitted.</b> ${out.filter((x) => x.ok).length} of ${out.length} removals sent; they count once confirmed on-chain.`, ...out.filter((x) => !x.ok).map((x) => `⚠️ ${esc(x.tokenSymbol)}: ${esc(x.error ?? 'failed')}`)].join('\n')
+
+// ---- auto-invest: a fixed buy on a schedule, through the same guard, per-wallet daily cap ----
+export const AUTO_HOUR_UTC = 14 // 21:00 WIB, 10:00 New York: the US market is open
+const autoWhen = (r) => (r.every === 'day' ? 'every day' : 'every Monday')
+export const autoLine = (r) => `Buy $${esc(r.usdt)} of ${esc(nameOf(r.ticker))} ${autoWhen(r)} at 21:00 WIB`
+export const autoCard = (ticker, cap) => `🔁 <b>Auto-invest in ${esc(nameOf(ticker))}</b>\nBuy the same amount on a schedule. Every buy passes the same price check, and your wallet spends at most $${cap} a day on auto-invest.\n\nHow much each time?`
+export const autoAmountButtons = (id) => ({ inline_keyboard: [AMOUNTS.map((a) => ({ text: `$${a}`, callback_data: `aia:${id}:${a}` })), [home$]] })
+export const autoFreq = (ticker, usdt) => `🔁 <b>$${esc(usdt)} of ${esc(nameOf(ticker))}</b>. How often?`
+export const autoFreqButtons = (id) => ({ inline_keyboard: [[{ text: 'Every day', callback_data: `aif:${id}:day` }, { text: 'Every Monday', callback_data: `aif:${id}:week` }], [home$]] })
+export const confirmAuto = (r) => `🔁 ${autoLine(r)}?\n<i>Only at a fair price; skipped if the price check fails. Stop anytime in My stocks → 🔁 Auto-invest.</i>`
+export const autoStartButtons = (id) => ({ inline_keyboard: [[{ text: '✅ Start', callback_data: `ais:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
+const autos$ = { text: '🔁 Auto-invest', callback_data: 'ail' }
+export const autoSaved = (r) => `✅ <b>Auto-invest on.</b> ${autoLine(r)}.\nI'll message you after every buy.`
+export const autoSavedButtons = { inline_keyboard: [[autos$, home$]] }
+export const autoList = (list) => list.length
+  ? ['🔁 <b>Your auto-invest</b>', '', ...list.map((s, i) => `${i + 1}. ${autoLine(s.rule)}${s.runs?.length ? ` · <i>last: ${esc(s.runs.at(-1).status.toLowerCase())}</i>` : ''}`)].join('\n')
+  : '🔁 <b>No auto-invest yet.</b>\nOpen a stock and tap 🔁 Auto-invest.'
+export const autoListButtons = (list) => ({ inline_keyboard: [...list.map((s, i) => [{ text: `⏹ Stop ${i + 1}`, callback_data: `aist:${s.id}` }]), [home$]] })
+export const autoStopped = (r) => `⏹ <b>Stopped.</b> ${autoLine(r)}.`
 
 export const buying = (usdt, ticker) => `⏳ Buying <b>$${esc(usdt)}</b> of ${esc(nameOf(ticker))}… this takes a few seconds.`
 export const selling = (ticker) => `⏳ Selling your ${esc(nameOf(ticker))}… this takes a few seconds.`
@@ -367,4 +386,4 @@ export const strategyList = (items) =>
   items.length
     ? `🗓 <b>Your strategies</b>\n\n${items.map(({ id, description }) => `<code>#${esc(id)}</code>\n${esc(description).replace(/\n· /g, '\n• ')}`).join('\n\n')}`
     : '🗓 No strategies yet. Try /strategy buy $10 of NVDA every Monday'
-export const autopilot = (text) => `🤖 <b>Autopilot</b>\n${esc(text)}`
+export const autopilot = (text) => `🔁 <b>Auto-invest</b>\n${esc(text)}`
