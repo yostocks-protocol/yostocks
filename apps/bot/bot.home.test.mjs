@@ -1,7 +1,7 @@
 // Integration: the button-first flow (home → stock card → Buy $X, My stocks → Sell) against fakes.
 import { test, before, after, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIXTURE, FAKE_BAW, addr, quote, mockFetch, scenario } from '../agent/test/helpers.mjs'
@@ -250,4 +250,31 @@ test('✏️ Other: type an amount, confirm, the guard runs again and buys exact
   await tap(button('✅ Buy $15'))
   assert.match(texts().at(-1), /Done! You bought/)
   assert.equal(arg(swaps().at(-1), '--fromTokenQty'), '15')
+})
+
+test('owner: Disconnect signs the server wallet out (dir kept), then Connect from Telegram; an expired session asks to connect', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yo-owner-baw-'))
+  writeFileSync(join(dir, 'session.json'), '{}')
+  process.env.BINANCE_BAW_DIR = dir
+  try {
+    sc.set({ quotes: quotes(10) })
+    await onMessage({ chat: { id: OWNER }, text: '/start' })
+    await tap(button('🔌 Disconnect'))
+    assert.match(texts().at(-1), /Disconnected/)
+    assert.deepEqual(sc.calls().at(-1).slice(0, 2), ['auth', 'signout'])
+    assert.ok(existsSync(join(dir, 'session.json')), "the owner's session dir is never deleted")
+    await tap('stk:NVDA')
+    assert.ok(!kb().some((b) => b.text.startsWith('Buy')), 'signed out: no Buy')
+    await tap(button('🔗 Connect Binance to buy'))
+    assert.ok(texts().some((t) => /Connected!/.test(t)))
+    assert.ok(kb().some((b) => b.text === 'Buy $10'), 'back on the stock with Buy')
+    sc.set({ quotes: quotes(10), auth: 'SESSION_EXPIRED' })
+    await tap('pf')
+    assert.match(texts().at(-1), /connect Binance again/)
+    assert.ok(kb().some((b) => b.text === '🔗 Connect Binance to buy'))
+  } finally {
+    delete process.env.BINANCE_BAW_DIR
+    sc.set({ quotes: quotes(10) })
+    await tap('cw') // leave the owner connected for other tests
+  }
 })

@@ -18,11 +18,18 @@ const DATA = process.env.YO_DATA ?? new URL('./data/strategies.json', import.met
 
 // Anyone can connect their own Agentic Wallet: one baw session dir per Telegram chat. The owner keeps the default session.
 const WALLETS = process.env.YO_WALLETS ?? join(dirname(DATA), 'wallets')
-const walletDir = (chat) => join(WALLETS, String(Number(chat)))
+// The owner's wallet is the server's default session; the owner can sign it out and back in from Telegram too.
+const isOwnerChat = (chat) => String(chat) === OWNER
+const OWNER_OFF = join(dirname(DATA), 'owner-signed-out')
+const walletDir = (chat) => (isOwnerChat(chat) ? process.env.BINANCE_BAW_DIR : join(WALLETS, String(Number(chat))))
 const LINKED = 'yo-linked.json' // written only after the user approved in the Binance app
-// Private chats only (positive ids): in a group every member could tap the buttons of a wallet linked to it.
-export const linked = (chat) => Number(chat) > 0 && String(chat) !== OWNER && existsSync(join(walletDir(chat), LINKED))
-const unlink = (chat) => rmSync(walletDir(chat), { recursive: true, force: true })
+/** Has a wallet to trade with. Private chats only (positive ids): in a group every member could tap the buttons. */
+export const linked = (chat) => (isOwnerChat(chat) ? !existsSync(OWNER_OFF) : Number(chat) > 0 && existsSync(join(walletDir(chat), LINKED)))
+const unlink = (chat) => {
+  if (!isOwnerChat(chat)) return rmSync(walletDir(chat), { recursive: true, force: true })
+  mkdirSync(dirname(OWNER_OFF), { recursive: true })
+  writeFileSync(OWNER_OFF, new Date().toISOString()) // never delete the owner's session dir
+}
 /** Run fn on the user's own wallet; if its session died (7-day limit, or signed in elsewhere) unlink and ask to reconnect. */
 const asUser = (chat, fn) => wallet.run(walletDir(chat), fn).catch((e) => {
   if (!/SESSION_EXPIRED|NOT_LOGGED_IN/.test(e.message)) throw e
@@ -126,13 +133,13 @@ export async function stockMeta(token) {
 
 let homeCache = { at: 0, list: [], board: null }
 /** Home: a price board picture (price + 24h change per stock, cached a minute), then the stock buttons. */
-async function showHome(chat, canTrade, isLinked = false) {
+async function showHome(chat, canTrade) {
   if (Date.now() - homeCache.at > 60_000) {
     const list = await prices(ui.TICKERS).catch(() => [])
     homeCache = { at: Date.now(), list, board: list.length ? await portfolio.render(ui.board(list), 800, 520) : null }
   }
   const { list, board } = homeCache
-  const reply_markup = ui.homeButtons(canTrade, isLinked)
+  const reply_markup = ui.homeButtons(canTrade)
   if (!board) return card(chat, ui.home(list), { reply_markup }) // no picture: prices go in the text
   return card(chat, ui.home(), { photo: board, reply_markup }).catch(() => card(chat, ui.home(list), { reply_markup }))
 }
@@ -164,7 +171,7 @@ async function funds() {
 
 async function showPortfolio(chat) {
   const r = await portfolio.report()
-  const reply_markup = r.rows.length ? ui.portfolioButtons(r.rows) : ui.homeButtons(true, linked(chat))
+  const reply_markup = r.rows.length ? ui.portfolioButtons(r.rows) : ui.homeButtons(true)
   if (r.rows.length && r.chart) return card(chat, ui.portfolio(r), { photo: r.chart, reply_markup }).catch(() => say(chat, ui.portfolio(r), { reply_markup }))
   return say(chat, ui.portfolio(r), { reply_markup })
 }
@@ -182,7 +189,7 @@ async function sellOffer(chat, ticker, amount = 'all') {
 async function connectWallet(chat, ticker) {
   if (connecting.has(chat)) return say(chat, ui.notice('Already waiting for your approval in the Binance app.'))
   const dir = walletDir(chat)
-  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  if (dir) mkdirSync(dir, { recursive: true, mode: 0o700 })
   const w = (...a) => wallet.run(dir, () => baw(...a))
   const s = await w('auth', 'signin')
   if (!s.success) return say(chat, ui.problem(s.error?.message ?? 'sign-in failed'))
@@ -196,10 +203,11 @@ async function connectWallet(chat, ticker) {
       if (!v.success) return say(chat, ui.connectFailed, { reply_markup: ui.homeButtons(false) })
     }
     const f = await wallet.run(dir, funds)
-    writeFileSync(join(dir, LINKED), JSON.stringify({ address: f.address, at: new Date().toISOString() }))
+    if (isOwnerChat(chat)) rmSync(OWNER_OFF, { force: true })
+    else writeFileSync(join(dir, LINKED), JSON.stringify({ address: f.address, at: new Date().toISOString() }))
     // Straight back to the stock they wanted, now with Buy buttons.
     if (ticker && isTicker(ticker)) return say(chat, ui.connected(f.address, f.usdt)).then(() => asUser(chat, () => showStock(chat, ticker, true)))
-    return say(chat, ui.connected(f.address, f.usdt), { reply_markup: ui.homeButtons(true, true) })
+    return say(chat, ui.connected(f.address, f.usdt), { reply_markup: ui.homeButtons(true) })
   } finally {
     connecting.delete(chat)
   }
@@ -218,7 +226,7 @@ function onLinked(chat, text = '') {
   if (!name?.startsWith('/') && isTicker(name)) return showStock(chat, name, true)
   if (name === '/sell') { const p = parse(text); return p.error ? say(chat, ui.notice(p.error)) : sellOffer(chat, p.ticker, p.amount) }
   if (['/quote', '/analyze', '/macro', '/market'].includes(name)) return onPublic(chat, text)
-  return showHome(chat, true, true)
+  return showHome(chat, true)
 }
 
 const awaiting = new Map() // chat → { ticker, at }: tapped ✏️ Other, the next number they type is the amount
@@ -239,8 +247,13 @@ export async function onMessage(msg) {
   const w = awaiting.get(chat)
   if (w && /^\s*\$?\s*[\d.,]+\s*$/.test(msg.text ?? '') && Date.now() - w.at < 10 * 60_000) return customAmount(chat, w, msg.text)
   awaiting.delete(chat) // typed something else: back to normal
+  if (isOwnerChat(chat)) return linked(chat) ? asUser(chat, () => onOwner(chat, msg)) : onPublic(chat, msg.text)
   if (linked(chat)) return asUser(chat, () => onLinked(chat, msg.text))
-  if (String(chat) !== OWNER) return onPublic(chat, msg.text)
+  return onPublic(chat, msg.text)
+}
+
+/** The owner: everything, including strategies and x402 paid data. */
+async function onOwner(chat, msg) {
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
   const name = head?.replace(/@.*$/, '').toLowerCase()
   if (name === '/strategy') return onStrategy(chat, rest.join(' '))
@@ -342,15 +355,15 @@ export async function onCallback(q) {
 
 async function callback(q, chat) {
   const isOwner = String(chat) === OWNER
-  const owner = isOwner || linked(chat) // may trade (buy / sell / My stocks), each on their own wallet
+  const owner = linked(chat) // may trade (buy / sell / My stocks), each on their own wallet; the owner too unless signed out
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'amt'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
-    if (action === 'home') return showHome(chat, owner, linked(chat))
+    if (action === 'home') return showHome(chat, owner)
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
-    if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
-    if (action === 'dw') return linked(chat) ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
+    if (action === 'cw') return owner ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
+    if (action === 'dw') return owner ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
     if (action === 'oth') return say(chat, ui.askTicker)
     if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown())
     if (action === 'why') { // the full provider comparison behind the simple card
@@ -377,7 +390,7 @@ async function callback(q, chat) {
   await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
   // The owner may use any pending offer; a connected user only buy/sell offers made in their own chat.
-  const allowed = p && (isOwner || (p.chat === chat && ['buy', 'sell', 'no'].includes(action)))
+  const allowed = p && ((isOwner && owner) || (p.chat === chat && ['buy', 'sell', 'no'].includes(action)))
   if (!allowed || action === 'no') return say(chat, ui.notice(allowed ? 'Cancelled.' : 'This button has expired. Send /buy again.'))
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
