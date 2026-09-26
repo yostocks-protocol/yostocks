@@ -1,66 +1,60 @@
 ---
 import { links } from '../data/content'
+// Sellix template: a rotating dot-matrix globe behind the hero, recoloured to the YO red (hue +105°)
+// and re-encoded small (public/globe.mp4, 600 KB). Two copies cross-fade at the loop point so the
+// clip's mismatched last/first frames never snap.
 ---
-<section class="hero-card">
-  <div class="hero-grid"></div>
-
-  <div class="icon-pipeline" id="pipeline">
-    <svg class="beam-svg" aria-hidden="true">
-      <defs>
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="blur" /><feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
-        <linearGradient id="beam-gradient" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="10" y2="0">
-          <stop offset="0%" stop-color="#e2574c" stop-opacity="0" />
-          <stop offset="20%" stop-color="#e2574c" stop-opacity="0.8" />
-          <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
-          <stop offset="80%" stop-color="#f4ecd6" stop-opacity="0.8" />
-          <stop offset="100%" stop-color="#f4ecd6" stop-opacity="0" />
-        </linearGradient>
-      </defs>
-      <path id="beam-glow" stroke="url(#beam-gradient)" stroke-width="2" filter="url(#glow)" opacity="0.6" />
-      <path id="beam-core" stroke="url(#beam-gradient)" stroke-width="0.8" />
-    </svg>
-
-    <div class="node-wrap">
-      <div class="icon-node node-light-right" id="node-stack" title="Ondo · xStocks · bStocks">
-        <svg viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></svg>
-      </div>
-      <span class="node-label">3 providers</span>
-    </div>
-    <div class="pipeline-line"></div>
-    <div class="node-wrap">
-      <div class="splash" id="splash"></div>
-      <div class="icon-node-center" id="node-x"><img src="/yo.png" alt="yostocks guard" width="64" height="64" /></div>
-      <span class="node-label">guard</span>
-    </div>
-    <div class="pipeline-line right"></div>
-    <div class="node-wrap">
-      <div class="icon-node node-light-left" id="node-shield" title="Safe fill">
-        <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
-      </div>
-      <span class="node-label">safe fill</span>
-    </div>
+<section class="globe-hero">
+  <div class="globe-bg" aria-hidden="true">
+    <video class="globe-video is-active" id="gvA" autoplay muted loop playsinline preload="auto" disablepictureinpicture poster="/globe.jpg"><source src="/globe.mp4" type="video/mp4" /></video>
+    <video class="globe-video" id="gvB" muted loop playsinline preload="auto" disablepictureinpicture poster="/globe.jpg"><source src="/globe.mp4" type="video/mp4" /></video>
   </div>
+  <div class="globe-shade" aria-hidden="true"></div>
 
-  <div class="hero-content">
-    <span class="eyebrow"><b>BNB Hack</b> · Tokenized Stocks Edition</span>
-    <h1 class="hero-heading">
-      Buy US stocks
-      <strong>right in Telegram, 24/7</strong>
+  <div class="hero-inner">
+    <span class="badge rise" style="--d: .05s">
+      <i><svg viewBox="5 1 14 22" preserveAspectRatio="none" aria-hidden="true"><path d="M13.9 1.6 5.5 13.6a.7.7 0 0 0 .6 1.1h4.2l-1 7.7a.7.7 0 0 0 1.25.55l8.3-12.1a.7.7 0 0 0-.6-1.1h-4.2l1-7.7a.7.7 0 0 0-1.25-.55Z" /></svg></i>
+      <b>BNB Hack · Tokenized Stocks Edition</b>
+    </span>
+    <h1>
+      <span class="ln"><span class="ln-i" style="--d: .12s">Buy US stocks</span></span>
+      <span class="ln"><span class="ln-i grad" style="--d: .22s">in Telegram, 24/7</span></span>
     </h1>
-    <p class="hero-sub">
+    <p class="sub">
       NVIDIA, Tesla, Apple and more, as tokens on BNB Chain. Tap a stock, pick an amount, done.
       No broker account, no market hours, and it only buys at the real stock price.
     </p>
-    <div class="cta-row">
-      <a href={links.bot} class="btn-cta" target="_blank" rel="noopener">Open @yostocksbot</a>
-      <a href="#how" class="btn-ghost">How it works</a>
+    <div class="ctas">
+      <a href={links.bot} class="gbtn rise" style="--d: .9s" target="_blank" rel="noopener"><span>Open @yostocksbot</span></a>
+      <a href="#how" class="btn-glass rise" style="--d: .97s">How it works
+        <svg class="arw" viewBox="0 0 12 10" fill="none" aria-hidden="true"><path d="M0.8 5h10M7.1 1.4 10.9 5l-3.8 3.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </a>
     </div>
   </div>
 </section>
 
 <script>
-  import { startBeam } from '../scripts/beam'
-  startBeam()
+  const a = document.getElementById('gvA') as HTMLVideoElement | null
+  const b = document.getElementById('gvB') as HTMLVideoElement | null
+  if (a && b) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      a.removeAttribute('autoplay'); a.pause(); b.pause()
+      try { a.currentTime = 0 } catch {}
+    } else {
+      const FADE = 0.9
+      let cur = a, nxt = b, swapping = false
+      const play = (v: HTMLVideoElement) => v.play().catch(() => {})
+      play(a)
+      const tick = () => {
+        if (swapping || !cur.duration || cur.duration - cur.currentTime > FADE) return
+        swapping = true
+        const out = cur
+        nxt.currentTime = 0; play(nxt)
+        nxt.classList.add('is-active'); out.classList.remove('is-active')
+        ;[cur, nxt] = [nxt, cur]
+        setTimeout(() => { out.pause(); out.currentTime = 0; swapping = false }, FADE * 1000 + 100)
+      }
+      a.addEventListener('timeupdate', tick); b.addEventListener('timeupdate', tick)
+    }
+  }
 </script>

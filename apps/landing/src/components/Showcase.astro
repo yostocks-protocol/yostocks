@@ -1,0 +1,112 @@
+---
+// Vertex template: a true 3D perspective ring of cards with the product mock in FRONT of it.
+// Here the cards are tokenized stocks (logo + name from Binance's RWA API, fetched at build time)
+// and the mock is the Telegram chat itself.
+const API = 'https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa'
+const H = { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' }
+const WANT = ['NVDA', 'TSLA', 'AAPL', 'MSTR', 'META', 'GOOGL', 'AMZN', 'MSFT', 'AMD', 'COIN', 'NFLX', 'SPY', 'QQQ', 'PLTR']
+const PROVIDER: Record<number, string> = { 1: 'Ondo', 2: 'xStocks', 3: 'bStocks' }
+interface Stock { ticker: string; name: string; logo?: string; providers: string[] }
+let stocks: Stock[] = WANT.map((ticker) => ({ ticker, name: ticker, providers: [] }))
+try {
+  const list: any[] = (await (await fetch(`${API}/stock/detail/list/ai`, { headers: H })).json()).data
+  const bsc = list.filter((t) => t.chainId === '56' && PROVIDER[t.type])
+  stocks = (await Promise.all(WANT.map(async (ticker) => {
+    const ts = bsc.filter((t) => t.ticker === ticker)
+    if (!ts.length) return null
+    const t = ts.find((x) => x.type === 3) ?? ts[0]
+    const m = (await (await fetch(`${API}/meta/ai?chainId=56&contractAddress=${t.contractAddress}`, { headers: H })).json()).data
+    return { ticker, name: (m?.companyInfo?.companyName ?? ticker).replace(/\s+(Corp|Inc|Corporation|Incorporated|Ltd|plc)\.?$/i, ''), logo: m?.icon ? `https://bin.bnbstatic.com${m.icon}` : undefined, providers: [...new Set(ts.map((x) => PROVIDER[x.type]))] }
+  }))).filter(Boolean) as Stock[]
+} catch { /* offline build: cards fall back to tickers only */ }
+const PALETTES = ['red', 'cream', 'bnb', 'night', 'green']
+const N = 37 // cards on the ring; the stocks repeat around it
+const cards = Array.from({ length: N }, (_, i) => ({ s: stocks[i % stocks.length], p: PALETTES[i % PALETTES.length] }))
+---
+<section class="showcase" id="stocks">
+  <div class="sc-head">
+    <span class="badge reveal">
+      <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></i>
+      <b>Every stock, around the clock</b>
+    </span>
+    <h2 class="reveal">Wall Street never closes <strong>in your chat</strong></h2>
+    <p class="lead reveal">Tokenized US stocks on BNB Chain from bStocks, Ondo and xStocks. Pick one, and yostocks finds the fairest price among all three.</p>
+  </div>
+
+  <div class="sc-stage">
+    <div class="ring-box">
+      <div class="ring-canvas">
+        <div class="ring" id="ring" aria-hidden="true">
+          {cards.map(({ s, p }) => (
+            <div class={`scard p-${p}`}>
+              {s.logo ? <img src={s.logo} alt="" loading="lazy" /> : <span class="noimg">{s.ticker[0]}</span>}
+              <span class="tk">{s.ticker}</span>
+              <span class="nm">{s.name}</span>
+              <span class="pv">{s.providers.join(' · ') || 'BNB Chain'}</span>
+              <span class="ts">24/7</span>
+              <div class="edge"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div class="chat" role="img" aria-label="yostocks in Telegram: a stock card with Buy buttons, then a receipt">
+      <div class="chat-bar">
+        <img src="/yo.png" alt="" width="34" height="34" />
+        <div><b>YoStocks</b><small>bot</small></div>
+      </div>
+      <div class="chat-body">
+        <div class="msg reveal" style="--delay: .1s">
+          <p><b>NVIDIA</b> · NVDA<br /><b>$224.81</b>&nbsp;&nbsp; ▲ 0.30% today<br /><i>Nvidia is a leading developer of graphics processing units.</i></p>
+          <pre>Market cap  $5.43T
+52-week     $164.27 – $236.54
+US market   Closed · token 24/7</pre>
+          <p>✅ <b>Fair price</b> · via bStocks, 0.19% below the stock price</p>
+        </div>
+        <div class="kb reveal" style="--delay: .25s">
+          <span>Buy $5</span><span class="hit">Buy $10</span><span>Buy $25</span>
+          <span>✏️ Other</span><span>ℹ️ Details</span><span>🏠 Home</span>
+        </div>
+        <div class="msg short reveal" style="--delay: .55s"><p>⏳ Buying <b>$10</b> of NVIDIA… this takes a few seconds.</p></div>
+        <div class="msg reveal" style="--delay: .85s">
+          <p>✅ <b>Done! You bought NVIDIA</b></p>
+          <p>0.0445 shares for <b>$10.00</b><br /><i>$224.39 per share, 0.19% below the stock price.</i></p>
+          <p class="link">See the transaction ↗</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Ring maths from the template: camera AT the ring centre (perspective = R), so every card is
+  // tangent to the cylinder and faces the camera; the slanted tops are perspective, not rotation.
+  const ring = document.getElementById('ring')
+  const box = document.querySelector<HTMLElement>('.sc-stage')
+  if (ring && box) {
+    const cards = [...ring.children] as HTMLElement[]
+    const R = 891, STEP = 360 / cards.length, CULL = 42, SPEED = 1.9
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+    let phase = -2, last = 0
+    const place = () => cards.forEach((el, i) => {
+      const a = (((i * STEP + phase) % 360) + 540) % 360 - 180 // signed angle, -180..180
+      if (Math.abs(a) > CULL) { el.style.visibility = 'hidden'; return }
+      el.style.visibility = 'visible'
+      const r = (a * Math.PI) / 180, c = Math.cos(r)
+      el.style.transform = `translate3d(${R * Math.sin(r)}px,0,${R * (1 - c)}px) rotateY(${-a}deg)`
+      el.style.filter = `brightness(${0.84 + 0.5 * (1 / c - 1)})`
+    })
+    const fit = () => { // one design canvas (1172 px wide), scaled; phones keep it larger and clip the sides
+      const w = box.clientWidth
+      box.style.setProperty('--k', String(w <= 700 ? Math.max(w / 1172, 0.52) : Math.min(1, w / 1172)))
+    }
+    const tick = (t: number) => {
+      const dt = Math.min((t - (last || t)) / 1000, 0.1); last = t
+      if (!still) phase -= SPEED * dt
+      place(); requestAnimationFrame(tick)
+    }
+    document.addEventListener('visibilitychange', () => { last = 0 })
+    addEventListener('resize', fit); fit(); requestAnimationFrame(tick)
+  }
+</script>
