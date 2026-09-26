@@ -51,9 +51,11 @@ export function parse(text = '') {
 }
 
 async function tg(method, body) {
-  const res = await fetch(`${TG_API}/bot${TOKEN}/${method}`, {
+  const send = () => fetch(`${TG_API}/bot${TOKEN}/${method}`, {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
   })
+  // One retry on a dropped connection (ECONNRESET happens); Telegram's own errors (!ok) are not retried.
+  const res = await send().catch(() => new Promise((r) => setTimeout(r, 500)).then(send))
   const j = await res.json()
   if (!j.ok) throw new Error(`${method}: ${j.description}`)
   return j.result
@@ -328,7 +330,7 @@ async function callback(q, chat) {
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw'].includes(action)) {
-    await tg('answerCallbackQuery', { callback_query_id: q.id })
+    await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
     if (action === 'home') return showHome(chat, owner, linked(chat))
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
     if (action === 'cw') return isOwner || linked(chat) ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
@@ -350,7 +352,7 @@ async function callback(q, chat) {
     if (!ui.AMOUNTS.includes(p.usdt)) p.ticker = null
   }
   pending.delete(id) // one tap = one decision, even on double-tap
-  await tg('answerCallbackQuery', { callback_query_id: q.id })
+  await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
   // The owner may use any pending offer; a connected user only buy/sell offers made in their own chat.
   const allowed = p && (isOwner || (p.chat === chat && ['buy', 'sell'].includes(action)))
