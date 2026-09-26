@@ -19,10 +19,14 @@ const mine$ = { text: '💼 My stocks', callback_data: 'pf' }
 const connect$ = { text: '🔗 Connect Binance to buy', callback_data: 'cw' }
 export const doneButtons = { inline_keyboard: [[mine$, home$]] }
 
-export const home = (owner) => [
+const move = (pct) => (Number.isFinite(pct) ? `${pct >= 0 ? '🟢 +' : '🔴 −'}${Math.abs(pct).toFixed(1)}%` : '')
+/** prices: [{ ticker, price, change }] from yo.prices(); lines are skipped for tickers without data. */
+export const home = (prices = []) => [
   '👋 <b>Buy US stocks with USDT</b>',
-  'Pick one, or type any ticker (like <code>AMD</code>).',
   'I only buy when the price matches the real stock price.',
+  ...(prices.length ? ['', ...prices.map((p) => `<b>${esc(nameOf(p.ticker))}</b> · ${usd(p.price)} · ${move(p.change)}`), '<i>24h change</i>'] : []),
+  '',
+  'Tap one for details, or type any ticker (like <code>AMD</code>).',
 ].join('\n')
 /** canTrade: owner or a connected wallet. linked: a connected (non-owner) user, who also gets Disconnect. */
 export const homeButtons = (canTrade, linked = false) => ({
@@ -51,9 +55,33 @@ export const connectFirst = '🔒 Connect Binance first. It takes a few seconds.
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
 
+const MARKET = [[/pre/i, '🌅 US market: pre-market · tokens trade 24/7'], [/after|post/i, '🌙 US market: after hours · tokens trade 24/7'], [/off|clos/i, '🌙 US market: closed · tokens trade 24/7'], [/open|regular|trad/i, '🟢 US market: open']]
+/** The facts a buyer wants, from the scan's own RWA data: 24h change, 52-week range, size, dividend, market hours. */
+function facts(rows = []) {
+  const s = rows.find((r) => r.dyn?.stockInfo?.price)?.dyn
+  const tok = (rows.find((r) => r.t?.type === 3) ?? rows[0])?.dyn
+  const si = s?.stockInfo ?? {}
+  const out = []
+  if (Number(si.priceLow52w) && Number(si.priceHigh52w)) out.push(`📊 52-week range: ${usd(si.priceLow52w)} – ${usd(si.priceHigh52w)}`)
+  if (Number(si.marketCap)) out.push(`🏦 Company value: ${big(Number(si.marketCap))}`)
+  if (Number(si.dividendYield) > 0) out.push(`💵 Dividend: ${Number(si.dividendYield).toFixed(2)}% a year`)
+  const status = rows.find((r) => r.dyn?.statusInfo?.marketStatus)?.dyn.statusInfo.marketStatus // only Ondo reports it
+  const m = MARKET.find(([re]) => re.test(status ?? ''))
+  if (m) out.push(m[1])
+  return { change: Number(tok?.tokenInfo?.priceChangePct24h), lines: out }
+}
+const firstSentence = (t = '') => { const x = t.split(/(?<=\.)\s/)[0] ?? ''; return x.length > 180 ? `${x.slice(0, 177)}…` : x }
+
 /** One stock, in plain words. The provider comparison lives behind "Why?". */
-export function stockCard({ ticker, ref, best }, { company, owner } = {}) {
-  const lines = [`<b>${esc(nameOf(ticker, company))}</b> (${esc(ticker)})`, `<b>${usd(ref)}</b> per share`, '']
+export function stockCard({ ticker, ref, best, rows }, { company, about, owner } = {}) {
+  const f = facts(rows)
+  const lines = [
+    `<b>${esc(nameOf(ticker, company))}</b> (${esc(ticker)})`,
+    `<b>${usd(ref)}</b> per share${Number.isFinite(f.change) ? ` · ${move(f.change)} today` : ''}`,
+    ...(about ? [`<i>${esc(firstSentence(about))}</i>`] : []),
+    ...(f.lines.length ? ['', ...f.lines] : []),
+    '',
+  ]
   if (!best) {
     lines.push('⚠️ <b>Not a good time to buy.</b>', "On-chain prices don't match the real price right now. Try again in a bit.")
   } else {

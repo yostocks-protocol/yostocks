@@ -115,3 +115,30 @@ test('x402 merchant rejections read as "nothing was charged" with the provider r
   assert.match(rej, /nothing was charged[\s\S]*payment_rejected/)
   assert.match(ui.problem('swap rejected: boom'), /Something went wrong/)
 })
+
+test('home lists each stock with price and 24h change; nothing when prices are unavailable', () => {
+  const h = ui.home([{ ticker: 'NVDA', price: 223.06, change: 1.234 }, { ticker: 'TSLA', price: 412.1, change: -0.8 }])
+  assert.match(h, /<b>NVIDIA<\/b> · \$223\.06 · 🟢 \+1\.2%/)
+  assert.match(h, /<b>Tesla<\/b> · \$412\.10 · 🔴 −0\.8%/)
+  assert.ok(!/24h change/.test(ui.home([])))
+})
+
+test('stock card: what the company does, 24h change, 52-week range, company value, dividend, market hours', () => {
+  const dyn = {
+    tokenInfo: { priceChangePct24h: '-4.24' },
+    stockInfo: { price: '159.49', priceLow52w: '81.81', priceHigh52w: '365.21', marketCap: '64445706745', dividendYield: '0.5' },
+    statusInfo: { marketStatus: 'premarket' },
+  }
+  const best = { t: { type: 3, symbol: 'MSTRB' }, dyn, ok: true, dev: 0.1 }
+  const c = ui.stockCard({ ticker: 'MSTR', ref: 159.49, rows: [best], best }, { about: 'Strategy is a bitcoin treasury company. It also sells software.' })
+  assert.match(c, /\$159\.49<\/b> per share · 🔴 −4\.2% today/)
+  assert.match(c, /<i>Strategy is a bitcoin treasury company\.<\/i>/, 'first sentence only')
+  assert.match(c, /52-week range: \$81\.81 – \$365\.21/)
+  assert.match(c, /Company value: \$64\.4B/)
+  assert.match(c, /Dividend: 0\.50% a year/)
+  assert.match(c, /US market: pre-market · tokens trade 24\/7/)
+  const off = { t: { type: 1 }, dyn: { statusInfo: { marketStatus: 'offhours' } } }
+  const quiet = { ...best, dyn: { ...dyn, statusInfo: { marketStatus: null } } } // bStocks: no status
+  assert.match(ui.stockCard({ ticker: 'MSTR', ref: 1, rows: [quiet, off], best: quiet }), /US market: closed/, 'status from whichever token has it')
+  assert.ok(ui.stockCard({ ticker: 'X', ref: 1, rows: [{ t: { type: 3 }, dyn: { stockInfo: { dividendYield: '0' } } }], best: undefined }).indexOf('Dividend') < 0, 'no zero dividend line')
+})

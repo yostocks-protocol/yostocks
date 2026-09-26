@@ -72,6 +72,20 @@ async function market(ticker) {
   return { rows, ref }
 }
 
+/** Price per share and 24h change for each ticker (one token each, bStocks first); a ticker that fails is left out. */
+export async function prices(tickers) {
+  const list = await api('/v1/public/wallet-direct/buw/wallet/market/token/rwa/stock/detail/list/ai')
+  const rows = await Promise.all(tickers.map(async (ticker) => {
+    const ts = list.filter((t) => t.chainId === '56' && PROVIDER[t.type] && t.ticker === ticker)
+    const t = ts.find((x) => x.type === 3) ?? ts[0]
+    if (!t) return null
+    const d = await rwa('dynamic', t).catch(() => null)
+    const price = Number(d?.stockInfo?.price || Number(d?.tokenInfo?.price) / Number(d?.tokenInfo?.sharesMultiplier || 1))
+    return price > 0 ? { ticker, price, change: Number(d.tokenInfo.priceChangePct24h) } : null
+  }))
+  return rows.filter(Boolean)
+}
+
 export function assertSignedIn(...responses) {
   const e = responses.find((r) => AUTH_ERRORS.includes(r?.error?.name))
   if (e) throw new Error(`Agentic Wallet ${e.error.name}: run \`baw auth signin\``)
