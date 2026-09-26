@@ -19,6 +19,9 @@ try {
     return { ticker, name: (m?.companyInfo?.companyName ?? ticker).replace(/\s+(Corp|Inc|Corporation|Incorporated|Ltd|plc)\.?$/i, ''), logo: m?.icon ? `https://bin.bnbstatic.com${m.icon}` : undefined, providers: [...new Set(ts.map((x) => PROVIDER[x.type]))] }
   }))).filter(Boolean) as Stock[]
 } catch { /* offline build: cards fall back to tickers only */ }
+// Our own square logos (public/stocks/<ticker>.png, 512 px) win over Binance's token icons.
+const OWN = new Set(['AAPL', 'AMD', 'AMZN', 'GOOGL', 'META', 'MSFT', 'MSTR', 'NFLX', 'NVDA', 'PLTR', 'QQQ', 'SPY', 'TSLA'])
+stocks = stocks.map((s) => (OWN.has(s.ticker) ? { ...s, logo: `/stocks/${s.ticker.toLowerCase()}.png` } : s))
 const PALETTES = ['red', 'cream', 'bnb', 'night', 'green']
 const N = 37 // cards on the ring; the stocks repeat around it
 const cards = Array.from({ length: N }, (_, i) => ({ s: stocks[i % stocks.length], p: PALETTES[i % PALETTES.length] }))

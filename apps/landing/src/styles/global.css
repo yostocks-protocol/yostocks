@@ -108,7 +108,7 @@ nav {
 .ring { position: absolute; inset: 0; perspective: 891px; perspective-origin: 586px 572px; transform-style: preserve-3d; pointer-events: none; }
 .scard { position: absolute; left: 586px; top: 270px; width: 130px; height: 300px; margin: -150px 0 0 -65px; border-radius: 12px; overflow: hidden; padding: 16px 12px 14px;
   display: flex; flex-direction: column; backface-visibility: hidden; will-change: transform; box-shadow: 0 24px 46px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.5); }
-.scard img, .scard .noimg { width: 46px; height: 46px; border-radius: 50%; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.scard img, .scard .noimg { width: 46px; height: 46px; border-radius: 12px; background: #fff; object-fit: cover; box-shadow: 0 4px 12px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.2); }
 .scard .noimg { display: grid; place-items: center; font-weight: 800; color: #111; }
 .scard .tk { margin-top: 22px; font-weight: 900; font-size: 30px; letter-spacing: -0.015em; line-height: .96; transform: scaleX(.875); transform-origin: left center; white-space: nowrap; }
 .scard .nm { margin-top: 6px; font-size: 9px; opacity: .78; line-height: 1.3; }

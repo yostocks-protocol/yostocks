@@ -122,6 +122,9 @@ async function stockMetaByTicker(ticker) {
   return t ? stockMeta(t) : null
 }
 
+// Clean square logos served by the landing (apps/landing/public/stocks, 512 px); other tickers use Binance's token icon.
+const LOGOS = process.env.YO_LOGOS ?? 'https://yostocks.xyz/stocks/'
+const OWN_LOGOS = new Set(['AAPL', 'AMD', 'AMZN', 'GOOGL', 'META', 'MSFT', 'MSTR', 'NFLX', 'NVDA', 'PLTR', 'QQQ', 'SPY', 'TSLA'])
 const metaCache = new Map()
 /** Stock logo URL + company name for a token from Binance RWA meta; null if unavailable. */
 export async function stockMeta(token) {
@@ -130,7 +133,9 @@ export async function stockMeta(token) {
     const m = await fetch(`https://www.binance.com/bapi/defi/v1/public/wallet-direct/buw/wallet/market/token/rwa/meta/ai?chainId=56&contractAddress=${a}`, {
       headers: { 'Accept-Encoding': 'identity', 'User-Agent': 'binance-web3/1.1 (Skill)' },
     }).then((r) => r.json()).then((j) => j.data).catch(() => null)
-    metaCache.set(a, m?.icon ? { photo: `https://bin.bnbstatic.com${m.icon}`, company: m.companyInfo?.companyName, about: m.companyInfo?.description } : null)
+    const own = OWN_LOGOS.has(token.ticker) ? `${LOGOS}${token.ticker.toLowerCase()}.png` : null
+    const photo = own ?? (m?.icon ? `https://bin.bnbstatic.com${m.icon}` : null)
+    metaCache.set(a, photo ? { photo, company: m?.companyInfo?.companyName, about: m?.companyInfo?.description } : null)
   }
   return metaCache.get(a)
 }
