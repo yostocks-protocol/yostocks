@@ -122,11 +122,17 @@ export async function stockMeta(token) {
   return metaCache.get(a)
 }
 
-let homeCache = { at: 0, list: [] }
-/** Home: live price + 24h change per stock (cached a minute), then the stock buttons. */
+let homeCache = { at: 0, list: [], board: null }
+/** Home: a price board picture (price + 24h change per stock, cached a minute), then the stock buttons. */
 async function showHome(chat, canTrade, isLinked = false) {
-  if (Date.now() - homeCache.at > 60_000) homeCache = { at: Date.now(), list: await prices(ui.TICKERS).catch(() => []) }
-  return card(chat, ui.home(homeCache.list), { reply_markup: ui.homeButtons(canTrade, isLinked) })
+  if (Date.now() - homeCache.at > 60_000) {
+    const list = await prices(ui.TICKERS).catch(() => [])
+    homeCache = { at: Date.now(), list, board: list.length ? await portfolio.render(ui.board(list), 800, 520) : null }
+  }
+  const { list, board } = homeCache
+  const reply_markup = ui.homeButtons(canTrade, isLinked)
+  if (!board) return card(chat, ui.home(list), { reply_markup }) // no picture: prices go in the text
+  return card(chat, ui.home(), { photo: board, reply_markup }).catch(() => card(chat, ui.home(list), { reply_markup }))
 }
 
 // ponytail: in-memory, pending confirmations are lost on restart; fine while one owner uses one process

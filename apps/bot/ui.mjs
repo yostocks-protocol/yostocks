@@ -20,7 +20,12 @@ const connect$ = { text: '🔗 Connect Binance to buy', callback_data: 'cw' }
 export const doneButtons = { inline_keyboard: [[mine$, home$]] }
 
 const move = (pct) => (Number.isFinite(pct) ? `${pct >= 0 ? '🟢 +' : '🔴 −'}${Math.abs(pct).toFixed(1)}%` : '')
-/** prices: [{ ticker, price, change }] from yo.prices(); lines are skipped for tickers without data. */
+/** Home picture: one bar per stock, name and price on the left, 24h change as the bar. A Chart.js config as JS (the label formatter is a function). */
+export const board = (prices) => {
+  const j = JSON.stringify
+  return `{type:'bar',data:{labels:${j(prices.map((p) => `${nameOf(p.ticker)}   ${usd(p.price)}`))},datasets:[{data:${j(prices.map((p) => Number(p.change.toFixed(2))))},backgroundColor:${j(prices.map((p) => (p.change >= 0 ? '#3ecf8e' : '#ff6b6b')))},borderRadius:6,barThickness:26}]},options:{indexAxis:'y',layout:{padding:{left:10,right:20,top:10,bottom:10}},plugins:{legend:{display:false},title:{display:true,text:'US stocks · 24h change',color:'#f0f0f5',font:{size:22,weight:'bold'},padding:{bottom:18}},datalabels:{anchor:'end',align:'end',offset:6,color:'#f0f0f5',font:{size:16,weight:'bold'},formatter:(v)=>(v>=0?'+':'−')+Math.abs(v).toFixed(1)+'%'}},scales:{x:{display:false,grace:'30%'},y:{ticks:{color:'#f0f0f5',font:{size:18}},grid:{display:false}}}}}`
+}
+/** prices: [{ ticker, price, change }] listed in text, only when the board picture isn't available. */
 export const home = (prices = []) => [
   '👋 <b>Buy US stocks with USDT</b>',
   'I only buy when the price matches the real stock price.',
