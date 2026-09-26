@@ -1,22 +1,21 @@
 ---
 import { brands } from '../data/content'
 
-// Official logos (public/brands/, 96 px). Agent Studio has none yet: a simple outline icon instead.
-const logo: Partial<Record<(typeof brands)[number], string>> = {
+// Official logos (public/brands/, 96 px).
+const logo: Record<(typeof brands)[number], string> = {
   'BNB Chain': 'bnb',
   'Agentic Wallet': 'agentic-wallet',
   bStocks: 'bstocks',
   Ondo: 'ondo',
   xStocks: 'xstocks',
+  'Agent Studio': 'agent-studio',
 }
 ---
 <div class="brands" aria-label="Built on">
   <span class="label">Built on</span>
   {brands.map((b) => (
     <span class="brand-item">
-      {logo[b]
-        ? <img src={`/brands/${logo[b]}.png`} alt="" width="24" height="24" loading="lazy" class={`logo-${logo[b]}`} />
-        : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M9 12h6M12 9v6"/></svg>}
+      <img src={`/brands/${logo[b]}.png`} alt="" width="24" height="24" loading="lazy" class={`logo-${logo[b]}`} />
       {b}
     </span>
   ))}
