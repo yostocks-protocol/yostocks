@@ -130,11 +130,16 @@ export async function chartUrl(series) {
       },
     },
   }
+  return render(chart, 800, 420)
+}
+
+/** PNG URL for a Chart.js config (object, or a JS string when it needs functions); null if QuickChart fails. */
+export async function render(chart, width, height) {
   try {
     const res = await fetch(`${QUICKCHART}/chart/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chart, width: 800, height: 420, backgroundColor: '#0d0b0b', format: 'png', version: '4' }),
+      body: JSON.stringify({ chart, width, height, backgroundColor: '#0d0b0b', format: 'png', version: '4' }),
       signal: AbortSignal.timeout(20_000),
     })
     const j = await res.json()

@@ -32,6 +32,10 @@ const arg = (c, k) => c[c.indexOf(k) + 1]
 test('owner /start: short pitch + ticker buttons + My stocks', async () => {
   await onMessage({ chat: { id: OWNER }, text: '/start' })
   assert.match(texts()[0], /Buy US stocks with USDT/)
+  assert.equal(sent[0].photo, 'https://chart.test/pnl.png', 'the picture is the rendered price board')
+  assert.match(charts[0].chart, /US stocks · 24h change/)
+  assert.match(charts[0].chart, /"NVIDIA   \$\d+\.\d\d"/, 'name and price as the bar label')
+  assert.ok(!/\$\d/.test(sent[0].caption), 'no price list in the caption')
   const labels = kb().map((b) => b.text)
   for (const t of ['NVIDIA', 'Tesla', 'Apple', 'Strategy', '💼 My stocks']) assert.ok(labels.includes(t), t)
 })
@@ -201,3 +205,4 @@ test('empty wallet after connecting: where to send USDT; Buy without enough USDT
   assert.match(texts().at(-1), /Not enough USDT\.<\/b> You have \$3\.00, this needs \$5\.00[\s\S]*0xUserWallet/)
   assert.equal(swaps().length, n)
 })
+
