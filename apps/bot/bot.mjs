@@ -1,7 +1,7 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
 import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { scan, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn, prices } from '../agent/yo.mjs'
+import { scan, market, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn, prices } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
@@ -151,12 +151,18 @@ const newId = () => Math.random().toString(36).slice(2, 10)
 const isTicker = (t = '') => /^[A-Za-z.]{1,6}$/.test(t)
 
 /** Stock card: guard result for 10 USDT, and Buy $5/$10/$25 buttons for the owner. */
+const AUTH = /SESSION_EXPIRED|NOT_LOGGED_IN/
 async function showStock(chat, ticker, owner) {
-  const s = await scan(ticker.toUpperCase(), 10)
+  const s = await scan(ticker.toUpperCase(), 10).catch(async (e) => {
+    // No wallet session to quote with (e.g. the owner signed out): guests still see the stock, plus Connect.
+    if (owner || !AUTH.test(e.message)) throw e // a connected user's dead session is handled by asUser
+    const m = await market(ticker.toUpperCase())
+    return { ticker: ticker.toUpperCase(), usdt: 10, ref: m.ref, rows: m.rows, best: undefined, offline: true }
+  })
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const id = newId()
   if (owner && s.best) pending.set(id, { chat, ticker: s.ticker, at: Date.now() })
-  return card(chat, ui.stockCard(s, { company: m?.company, about: m?.about }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
+  return card(chat, ui.stockCard(s, { company: m?.company, about: m?.about }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && (!!s.best || !!s.offline)) })
 }
 
 /** Spendable USDT on BSC (null if unknown) and the address to top up. */
@@ -368,7 +374,8 @@ async function callback(q, chat) {
     if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown())
     if (action === 'why') { // the full provider comparison behind the simple card
       if (!owner && !publicAllowed(chat)) return say(chat, ui.slowDown())
-      const s = await scan(id, 10)
+      const s = await scan(id, 10).catch((e) => { if (owner || !AUTH.test(e.message)) throw e })
+      if (!s) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer }) // live quotes need a wallet
       return say(chat, ui.quoteCard(s), { reply_markup: ui.whyButtons(id) })
     }
     if (!owner) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })

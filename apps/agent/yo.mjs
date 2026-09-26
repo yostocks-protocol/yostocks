@@ -55,7 +55,7 @@ export function judge({ usdt, quote, multiplier, status }, ref, maxDev = MAX_DEV
 }
 
 // Every BSC token of a ticker with live data, plus the reference price per share.
-async function market(ticker) {
+export async function market(ticker) {
   const list = await api('/v1/public/wallet-direct/buw/wallet/market/token/rwa/stock/detail/list/ai')
   const tokens = list.filter((t) => t.chainId === '56' && PROVIDER[t.type] && t.ticker === ticker)
   if (!tokens.length) throw new Error(`${ticker} is not tokenized on BSC`)
