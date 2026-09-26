@@ -206,3 +206,20 @@ test('empty wallet after connecting: where to send USDT; Buy without enough USDT
   assert.equal(swaps().length, n)
 })
 
+
+test('a dropped connection to Telegram is retried; a failed button-spinner stop never aborts the action', async () => {
+  const real = globalThis.fetch
+  let drops = 0
+  globalThis.fetch = (url, init) => {
+    const m = String(url).split('/').pop()
+    if (String(url).startsWith('https://tg.test') && (m === 'answerCallbackQuery' || (m === 'sendPhoto' && drops++ === 0))) return Promise.reject(new TypeError('fetch failed'))
+    return real(url, init)
+  }
+  try {
+    await tap('home')
+  } finally {
+    globalThis.fetch = real
+  }
+  assert.equal(drops, 2, 'first sendPhoto dropped, retry went through')
+  assert.match(texts().at(-1), /Buy US stocks with USDT/)
+})
