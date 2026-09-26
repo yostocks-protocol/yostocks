@@ -21,5 +21,10 @@ const { title, description } = Astro.props
   </head>
   <body>
     <slot />
+    <script>
+      // Fade-up on scroll (from the Glow Features template's motion: opacity 0 → 1, y 30 → 0, 0.8 s ease-out).
+      const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target) } }), { threshold: 0.15 })
+      document.querySelectorAll('.reveal').forEach((el) => io.observe(el))
+    </script>
   </body>
 </html>

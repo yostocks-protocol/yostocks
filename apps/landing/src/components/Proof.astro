@@ -6,7 +6,7 @@ import { proofs, shortTx } from '../data/content'
   <h2>Real trades, <strong>real payments</strong>, on BSC</h2>
   <div class="proof">
     {proofs.map((p) => (
-      <div class="card proof-row">
+      <div class="gcard proof-row reveal">
         <div class="what">{p.title}<small>{p.detail}</small></div>
         <a href={`https://bscscan.com/tx/${p.tx}`} target="_blank" rel="noopener">{shortTx(p.tx)} ↗</a>
       </div>

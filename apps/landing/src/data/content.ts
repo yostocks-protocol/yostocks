@@ -7,11 +7,19 @@ export const links = {
   dxLog: 'https://github.com/yostocks-protocol/yostocks/blob/main/DX_LOG.md',
 } as const
 
+/** The three reasons, as glow cards. `glow` is the card's border + halo gradient. */
+export interface Pillar { icon: 'tap' | 'clock' | 'shield'; title: string; body: string; glow: string }
+export const pillars: Pillar[] = [
+  { icon: 'tap', title: 'Tap. Bought.', body: 'Pick a stock, tap $10, done. No broker account and no forms: just Telegram and your Binance wallet.', glow: 'linear-gradient(137deg, #f4ecd6 0%, #f3a38f 45%, #e2574c 100%)' },
+  { icon: 'clock', title: 'Open 24/7', body: 'Tokenized stocks trade around the clock, weekends too. Buy when it suits you, not when Wall Street opens.', glow: 'linear-gradient(137deg, #fff3c4 0%, #f0b90b 45%, #ff8a3c 100%)' },
+  { icon: 'shield', title: 'Real price, or no trade', body: 'Every order is checked against the real US stock price. A quote that is off never goes through.', glow: 'linear-gradient(137deg, #e8fff0 0%, #7ddc9a 45%, #1fb5a4 100%)' },
+]
+
 export interface Step { num: string; title: string; body: string }
 export const steps: Step[] = [
-  { num: '01 · SCAN', title: 'Every provider, every time', body: 'Ondo, xStocks and bStocks tokens for the ticker come from the Binance RWA Data API. Each gets a live swap quote from your Agentic Wallet.' },
-  { num: '02 · GUARD', title: 'Priced per share, checked against reality', body: 'Each quote becomes a price per share (dividend and split multiplier included) and must sit within 1% of the real US price. ~0 output, paused assets and empty pools are rejected.' },
-  { num: '03 · FILL', title: 'Best route, confirmed', body: 'You tap Buy, the guard runs again, the swap executes on BSC mainnet, and the bot waits for a real fill before sending a receipt with the BscScan link.' },
+  { num: '01', title: 'Open the bot', body: 'Start @yostocksbot. Live prices for NVIDIA, Tesla, Apple and more are right there.' },
+  { num: '02', title: 'Connect Binance', body: 'Tap Connect and approve in the Binance app. Your money stays in your own wallet, within the limit you set.' },
+  { num: '03', title: 'Tap Buy', body: 'Pick $5, $10, $25 or type any amount. A receipt with the on-chain proof arrives in seconds.' },
 ]
 
 /** `body` may contain inline <code>/<b>; it is authored here, never user input. */
@@ -40,6 +48,15 @@ export const findings: Finding[] = [
   { tag: 'Ondo', tone: 'warn', title: 'Buy anytime, sell only in market hours', body: 'Ondo tokens filled at the reference price, but sells were refused outside US hours while the asset still showed as trading.' },
   { tag: 'xStocks', tone: 'warn', title: 'Thin on BSC', body: 'Most xStocks pools were empty; a displayed price was 21% stale and one quote paid ~0 tokens.' },
   { tag: 'Developer experience', tone: 'info', title: '30+ issues logged, with evidence', body: 'From session expiry in containers to unlistable order ids and opaque x402 rejections, every one with a timestamp.' },
+]
+
+export interface Faq { q: string; a: string }
+export const faqs: Faq[] = [
+  { q: 'Do I need a broker account?', a: 'No. You need Telegram and a Binance account with the Agentic Wallet. yostocks connects to it in two taps.' },
+  { q: 'Can I really buy on weekends?', a: 'Yes. The tokens trade on BNB Chain 24/7. Each stock card also shows whether the US market itself is open.' },
+  { q: 'Who holds my money?', a: 'You do. Everything stays in your own Binance Agentic Wallet. yostocks can only spend within the limit you set in the Binance app, and you can disconnect at any time.' },
+  { q: 'What do I actually own?', a: 'A tokenized share on BNB Chain (bStocks, Ondo or xStocks) that tracks the real stock price. Sell it back to USDT in the bot whenever you like.' },
+  { q: 'Is there a fee?', a: 'yostocks adds no fee of its own. You pay the on-chain swap price, which the bot shows and checks before every buy.' },
 ]
 
 export const brands = ['BNB Chain', 'Agentic Wallet', 'bStocks', 'Ondo', 'xStocks', 'Agent Studio'] as const
