@@ -77,7 +77,7 @@ test('/quote replies with the guarded table, no buttons, no swap', async () => {
   await onMessage(msg('/quote nvda 10'))
   assert.match(texts()[0], /^<b>NVDA<\/b> · Nvidia Corp · quote for <b>10 USDT<\/b>\nReference price <b>\$\d+\.\d\d<\/b> \/ share/)
   assert.equal(sent[0].method, 'sendPhoto')
-  assert.equal(sent[0].photo, `https://bin.bnbstatic.com/logos/${addr('NVDAB')}.png`, 'logo of the best token')
+  assert.equal(sent[0].photo, 'https://yostocks.xyz/stocks/nvda.png', 'the stock\'s own logo')
   assert.match(texts()[0], /⭐ <b>bStocks · NVDAB<\/b>\n.*best route/)
   assert.match(texts()[0], /⛔ xStocks · NVDAx\n.*No liquidity/)
   assert.equal(sent[0].parse_mode, 'HTML')
@@ -224,7 +224,7 @@ test('with a logo, receipts and /start go out as a photo with the text as captio
     await tap(buttonData()[0])
     const r = sent.at(-1)
     assert.equal(r.method, 'sendPhoto')
-    assert.equal(r.photo, `https://bin.bnbstatic.com/logos/${addr('NVDAB')}.png`, 'receipt shows the stock bought')
+    assert.equal(r.photo, 'https://yostocks.xyz/stocks/nvda.png', 'receipt shows the stock bought')
     assert.match(r.caption, /✅ <b>Done! You bought NVIDIA<\/b>/)
     assert.ok(r.caption.length <= 1024, 'Telegram caption limit')
   } finally { brand.logo = null }
