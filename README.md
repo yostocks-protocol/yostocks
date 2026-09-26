@@ -25,6 +25,12 @@ real price, the best safe provider in one line, and why the others were skipped,
 your own Agentic Wallet, within the spending limit you set in the app. **🔌 Disconnect** signs the bot out.
 Strategies and paid data stay on the owner's wallet.
 
+**While you're away** the agent keeps working in your wallet: **🎯 Buy if it drops** (−3/−5/−10%) and **🎯 Sell higher**
+(+5/+10/+20%) place Agentic Wallet limit orders on the bStocks token, with the trigger converted from the per-share
+price and checked against the real stock price first. The bot watches them and messages you when one fills, expires or
+fails. **🛡 Safety** shows the wallet's daily limit and what's left, how risky trades are handled, and lets you remove
+token approvals, but never while an open order still needs them.
+
 ## What it does
 
 | | |

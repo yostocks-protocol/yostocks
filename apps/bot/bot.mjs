@@ -3,6 +3,7 @@ import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSyn
 import { dirname, join } from 'node:path'
 import { scan, market, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn, prices } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
+import * as orders from '../agent/orders.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
 import { runOnce } from './runner.mjs'
 import * as ui from './ui.mjs'
@@ -38,10 +39,13 @@ const asUser = (chat, fn) => wallet.run(walletDir(chat), fn).catch((e) => {
 })
 const connecting = new Set()
 
-export const store = {
-  load: () => { try { return JSON.parse(readFileSync(DATA, 'utf8')) } catch { return [] } },
-  save: (list) => { mkdirSync(dirname(DATA), { recursive: true }); writeFileSync(DATA, JSON.stringify(list, null, 1)) },
-}
+const jsonStore = (file) => ({
+  load: () => { try { return JSON.parse(readFileSync(file, 'utf8')) } catch { return [] } },
+  save: (list) => { mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, JSON.stringify(list, null, 1)) },
+})
+export const store = jsonStore(DATA)
+/** Limit orders placed through the bot, so the watcher can tell each chat when theirs fills. */
+export const orderStore = jsonStore(join(dirname(DATA), 'orders.json'))
 
 export function parse(text = '') {
   const [cmd, ticker, amount] = text.trim().split(/\s+/)
@@ -354,6 +358,113 @@ async function onStrategy(chat, text) {
   })
 }
 
+// ---- agentic actions: limit orders that wait in the wallet, and the wallet's brakes ----
+const AGENT = ['dip', 'dp', 'da', 'lb', 'tp', 'tpp', 'ls', 'ord', 'cx', 'sf', 'rv', 'rvok']
+const mine = (id, chat) => { const p = pending.get(id); return p?.chat === chat ? p : null } // offers are bound to their chat
+const expired = (chat) => say(chat, ui.notice('This button has expired. Open the stock again.'))
+
+async function agentAction(chat, action, id, arg) {
+  if (action === 'dip') { // from a stock card: pick how far it should drop
+    const p = mine(id, chat)
+    if (!p?.ticker) return expired(chat)
+    const { ref } = await market(p.ticker)
+    const d = newId()
+    pending.set(d, { chat, ticker: p.ticker, ref, at: Date.now() })
+    return say(chat, ui.dipCard(p.ticker, ref), { reply_markup: ui.dipButtons(d, ref) })
+  }
+  if (action === 'dp') { // picked a drop: now the amount
+    const p = mine(id, chat)
+    if (!p || !ui.DIPS.includes(Number(arg))) return expired(chat)
+    const e = newId()
+    const price = +(p.ref * (1 - Number(arg) / 100)).toFixed(2)
+    pending.set(e, { ...p, price })
+    return say(chat, ui.dipAmount(p.ticker, price, p.ref), { reply_markup: ui.dipAmountButtons(e) })
+  }
+  if (action === 'da') { // picked an amount: confirm
+    const p = mine(id, chat)
+    if (!p?.price || !ui.AMOUNTS.includes(Number(arg))) return expired(chat)
+    const f = newId()
+    pending.set(f, { ...p, usdt: Number(arg) })
+    return say(chat, ui.confirmDip(p.ticker, Number(arg), p.price, p.ref), { reply_markup: ui.placeButtons('lb', f) })
+  }
+  if (action === 'tp') { // from My stocks: pick how high to sell
+    const { ref } = await market(id)
+    const t = newId()
+    pending.set(t, { chat, ticker: id, ref, at: Date.now() })
+    return say(chat, ui.tpCard(id, ref), { reply_markup: ui.tpButtons(t, ref) })
+  }
+  if (action === 'tpp') {
+    const p = mine(id, chat)
+    if (!p || !ui.TPS.includes(Number(arg))) return expired(chat)
+    const u = newId()
+    const price = +(p.ref * (1 + Number(arg) / 100)).toFixed(2)
+    pending.set(u, { ...p, price })
+    return say(chat, ui.confirmTp(p.ticker, price, p.ref), { reply_markup: ui.placeButtons('ls', u) })
+  }
+  if (action === 'lb' || action === 'ls') { // place it (one tap = one order)
+    const p = mine(id, chat)
+    pending.delete(id)
+    if (!p?.price) return expired(chat)
+    const r = action === 'lb' ? await orders.placeBuy(p.ticker, p.usdt, p.price) : await orders.placeSell(p.ticker, p.price)
+    const o = { strategyId: String(r.strategyId), chat, side: action === 'lb' ? 'buy' : 'sell', ticker: p.ticker, usdt: p.usdt, price: p.price, trigger: r.trigger, status: 'WORKING', at: new Date().toISOString() }
+    orderStore.save([...orderStore.load(), o])
+    return say(chat, ui.orderPlaced(o), { reply_markup: ui.orderButtons })
+  }
+  if (action === 'ord') {
+    const list = orderStore.load().filter((o) => o.chat === chat)
+    await refresh(list)
+    const open = list.filter((o) => !orders.TERMINAL.includes(o.status))
+    return say(chat, ui.ordersList(open), { reply_markup: ui.ordersButtons(open) })
+  }
+  if (action === 'cx') {
+    const o = orderStore.load().find((x) => x.strategyId === id && x.chat === chat)
+    if (!o) return expired(chat)
+    await orders.cancel(id)
+    saveOrder({ ...o, status: 'CANCELED', notified: true })
+    return say(chat, ui.orderDone({ ...o, status: 'CANCELED' }), { reply_markup: ui.orderButtons })
+  }
+  if (action === 'sf') {
+    const s = await orders.safety()
+    const open = orderStore.load().filter((o) => o.chat === chat && !orders.TERMINAL.includes(o.status)).length
+    let rv = null
+    if (s.approvals?.length && !open) { rv = newId(); pending.set(rv, { chat, approvals: s.approvals, at: Date.now() }) } // never strand an open order
+    return say(chat, ui.safetyCard(s, open), { reply_markup: ui.safetyButtons(rv, s.approvals?.length ?? 0) })
+  }
+  if (action === 'rv') {
+    const p = mine(id, chat)
+    if (!p?.approvals) return expired(chat)
+    return say(chat, ui.confirmRevoke(p.approvals), { reply_markup: ui.revokeButtons(id) })
+  }
+  if (action === 'rvok') {
+    const p = mine(id, chat)
+    pending.delete(id)
+    if (!p?.approvals) return expired(chat)
+    return say(chat, ui.revoked(await orders.revokeAll(p.approvals)), { reply_markup: ui.doneButtons })
+  }
+}
+
+const saveOrder = (o) => orderStore.save(orderStore.load().map((x) => (x.strategyId === o.strategyId ? o : x)))
+/** Re-read open orders from each owner's wallet; returns those that just reached a final state. */
+async function refresh(list) {
+  const done = []
+  for (const o of list.filter((x) => !orders.TERMINAL.includes(x.status))) {
+    const live = await wallet.run(walletDir(o.chat), () => orders.order(o.strategyId)).catch(() => null)
+    if (!live || live.status === o.status) continue
+    Object.assign(o, { status: live.status, txHash: live.txHash ?? o.txHash })
+    saveOrder(o)
+    if (orders.TERMINAL.includes(o.status)) done.push(o)
+  }
+  return done
+}
+/** Background watcher: the agent keeps an eye on your orders and tells you when one finishes. */
+export async function watchOrders() {
+  for (const o of await refresh(orderStore.load())) {
+    if (o.notified) continue
+    await say(o.chat, ui.orderDone(o), { reply_markup: ui.orderButtons }).catch(() => {})
+    saveOrder({ ...o, notified: true })
+  }
+}
+
 export async function onCallback(q) {
   const chat = q.message.chat.id
   return linked(chat) ? asUser(chat, () => callback(q, chat)) : callback(q, chat)
@@ -364,6 +475,11 @@ async function callback(q, chat) {
   const owner = linked(chat) // may trade (buy / sell / My stocks), each on their own wallet; the owner too unless signed out
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
+  if (AGENT.includes(action)) {
+    await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {})
+    if (!owner) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
+    return agentAction(chat, action, id, arg)
+  }
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'amt'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
     if (action === 'home') return showHome(chat, owner)
@@ -471,6 +587,7 @@ async function main() {
     try {
       const done = await runOnce({ store, scan, execute, say: (chat, text) => say(chat, ui.autopilot(text)) })
       if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
+      await watchOrders()
     } catch (e) {
       console.error('runner', e)
     } finally {

@@ -17,6 +17,12 @@ else if (args[0] === 'x402-payment' && args[1] === 'preview' && /xrpl|solana/.te
 else if (args[0] === 'x402-payment' && args[1] === 'preview') out = f.x402Preview ?? { success: true, data: { paymentId: 'pay-1', options: [{ index: 1, status: 'READY_TO_SIGN', reasons: [], tokenSymbol: 'USDT', amount: '0.100000000000000000', needApproveFirst: false }] } }
 else if (args[0] === 'x402-payment' && args[1] === 'sign') out = f.x402Sign ?? { success: true, data: { paymentHeaderName: 'PAYMENT-SIGNATURE', paymentHeaderValue: `sig-for-${arg('--paymentId')}-${arg('--selectedIndex')}`, approveTxHash: null } }
 else if (args[0] === 'wallet' && args[1] === 'tx-history') out = { success: true, data: { binanceChainId: '56', txHash: arg('--tx'), status: f.txStatus ?? 'SUCCESS' } } // real `--tx` shape
+else if (args[0] === 'limit-order' && ['buy', 'sell'].includes(args[1])) out = f.limitPlace ?? { success: true, data: { strategyId: `s-${args[1]}-${arg('--triggerPrice')}` } }
+else if (args[0] === 'limit-order' && args[1] === 'list') out = { success: true, data: { list: (f.limitOrders ?? []).filter((o) => !args.includes('--strategyId') || o.strategyId === arg('--strategyId')) } }
+else if (args[0] === 'limit-order' && args[1] === 'cancel') out = { success: true, data: { strategyId: arg('--strategyId'), status: 'CANCELED' } }
+else if (args[0] === 'wallet' && args[1] === 'settings') out = f.settings ?? { success: true, data: { dailyLimit: 500, quotaUsed: 10, quotaLeft: 490, abnormalTxnHandling: 'AutoReject', tradeAllTokens: false, sessionExpireTime: '2026-10-02T14:00:00+00:00' } }
+else if (args[0] === 'approvals' && args[1] === 'list') out = { success: true, data: { list: f.approvals ?? [] } }
+else if (args[0] === 'approvals' && args[1] === 'revoke') out = { success: true, data: { orderId: 'r-1', status: 'BROADCASTED', txHash: `0xrevoke${arg('--spender').slice(2, 8)}` } }
 else if (args[0] === 'auth' && args[1] === 'signin') out = f.signin ?? { success: true, data: { qrCodeId: 'qr-1', expireAt: String(Date.now() + 300_000), urlForWeb: 'https://app.binance.com/uni-qr/test', pairingCode: '123456' } }
 else if (args[0] === 'auth' && args[1] === 'verify') out = f.verify ?? { success: true, data: { status: 'SUCCESS' } }
 else if (args[0] === 'auth' && args[1] === 'signout') out = { success: true, data: { status: 'LOGGED_OUT' } }
