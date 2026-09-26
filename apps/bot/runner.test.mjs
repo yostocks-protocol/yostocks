@@ -58,7 +58,7 @@ test('runOnce: fills the due strategy once, records the run, reports the tx; a s
   assert.deepEqual(h.calls.execute.map((c) => [c.t.symbol, c.usdt]), [['NVDAB', 10]])
   assert.equal(h.data()[0].lastSlot, new Date(MON_14).toISOString())
   assert.equal(h.data()[0].runs.length, 1)
-  assert.match(h.calls.say[0].text, /✓ strategy #a · NVDA 10 USDT filled NVDAB\nhttps:\/\/bscscan\.com\/tx\/0x1/)
+  assert.match(h.calls.say[0].text, /✅ Bought \$10 of NVDA \(NVDAB\)\nhttps:\/\/bscscan\.com\/tx\/0x1/)
   assert.equal(h.calls.say[0].chat, 42)
   assert.deepEqual(await runOnce(h.deps(MON_14 + 120_000)), {})
   assert.equal(h.calls.execute.length, 1)
@@ -73,7 +73,7 @@ test('runOnce: earnings limits, premium cap and no safe route each skip without 
   assert.equal((await runOnce(none.deps(MON_14))).n.why, 'no safe route')
   for (const h of [earnings, premium, none]) {
     assert.equal(h.calls.execute.length, 0)
-    assert.match(h.calls.say[0].text, /^⏭ .* skipped:/)
+    assert.match(h.calls.say[0].text, /^⏭ Skipped \$10 of NVDA: /)
     assert.ok(h.data()[0].lastSlot, 'slot consumed so it is not retried every minute')
   }
 })
@@ -108,7 +108,7 @@ test('runOnce: wallet session expiry is an ERROR reported to the user, not a cra
   const h = harness([S('s')], { scanError: 'Agentic Wallet SESSION_EXPIRED: run `baw auth signin`' })
   const r = await runOnce(h.deps(MON_14))
   assert.equal(r.s.status, 'ERROR')
-  assert.match(h.calls.say[0].text, /^✗ strategy #s .* error: Agentic Wallet SESSION_EXPIRED/)
+  assert.match(h.calls.say[0].text, /^✗ Couldn't buy \$10 of NVDA: connect Binance again in the bot$/)
   assert.equal(h.calls.execute.length, 0)
 })
 
@@ -117,6 +117,17 @@ test('runOnce: missed slot (bot was down >2h) is skipped without quoting', async
   const r = await runOnce(h.deps(MON_14 + GRACE_MS + 60_000))
   assert.match(r.m.why, /missed its slot/)
   assert.equal(h.calls.scan, 0)
+})
+
+test('runOnce: each chat has its own daily cap and runs in its own wallet; a disconnected wallet is skipped', async () => {
+  const other = { ...daily, usdt: 45 }
+  const h = harness([S('mine', { ...daily, usdt: 45 }), S('theirs', other, { chat: 77 }), S('gone', daily, { chat: 88 })])
+  const wallets = []
+  const r = await runOnce({ ...h.deps(MON_14 + 60_000), inWallet: (chat, fn) => { wallets.push(chat); return fn() }, canTrade: (chat) => chat !== 88 })
+  assert.equal(r.mine.status, 'FINISHED')
+  assert.equal(r.theirs.status, 'FINISHED', '45 + 45 > 50, but they are different wallets')
+  assert.deepEqual(r.gone, { status: 'SKIPPED', why: 'wallet not connected' })
+  assert.deepEqual(wallets.sort(), [42, 77])
 })
 
 test('runOnce: run history is capped at 20 entries', async () => {
