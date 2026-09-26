@@ -123,6 +123,8 @@ nav {
 .brands .label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .12em; }
 .brand-item { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.4); font-size: 1.05rem; font-weight: 500; white-space: nowrap; }
 .brand-item svg { width: 20px; height: 20px; }
+.brand-item img { width: 24px; height: 24px; object-fit: contain; }
+.brand-item .logo-ondo { filter: invert(1); } /* black logo on the dark page */
 
 /* ---------- SECTIONS ---------- */
 section.block { width: 100%; max-width: 1200px; padding: 110px 24px 0; }
