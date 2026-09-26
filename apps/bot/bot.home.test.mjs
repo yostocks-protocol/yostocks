@@ -45,9 +45,9 @@ test('tap NVDA → one-line best route, others summarised, Buy $5/$10/$25; nothi
   const n = swaps().length
   await tap('stk:NVDA')
   const c = texts().at(-1)
-  assert.match(c, /<b>NVIDIA<\/b> \(NVDA\)\n<b>\$\d+\.\d\d<\/b> per share/)
-  assert.match(c, /✅ <b>Good price right now<\/b>\n<i>Cheapest safe option: bStocks, 0\.02% above the stock price\.<\/i>/)
-  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', 'ℹ️ Why?', '🏠 Home'])
+  assert.match(c, /<b>NVIDIA<\/b> · NVDA\n<b>\$\d+\.\d\d<\/b>/)
+  assert.match(c, /✅ <b>Fair price<\/b> · via bStocks, 0\.02% above the stock price/)
+  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', '✏️ Other', 'ℹ️ Details', '🏠 Home'])
   assert.equal(swaps().length, n)
 })
 
@@ -70,7 +70,7 @@ test('Buy $10 re-checks at 10 USDT, swaps exactly 10 into the best token once, s
 test('typing a ticker opens its card; stale or forged Buy buttons never trade', async (t) => {
   sc.set({ quotes: quotes(10) })
   await onMessage({ chat: { id: OWNER }, text: 'nvda' })
-  assert.match(texts().at(-1), /\(NVDA\)/)
+  assert.match(texts().at(-1), /· NVDA/)
   const buy5 = button('Buy $5')
   const n = swaps().length
   const now = Date.now()
@@ -222,4 +222,32 @@ test('a dropped connection to Telegram is retried; a failed button-spinner stop 
   }
   assert.equal(drops, 2, 'first sendPhoto dropped, retry went through')
   assert.match(texts().at(-1), /Buy US stocks with USDT/)
+})
+
+test('✏️ Other: type an amount, confirm, the guard runs again and buys exactly that; bad input asks again', async () => {
+  sc.set({ quotes: quotes(10) })
+  await tap('stk:NVDA')
+  await tap(button('✏️ Other'))
+  assert.match(texts().at(-1), /How much USDT of <b>NVIDIA<\/b>/)
+  assert.equal(sent.at(-1).reply_markup.force_reply, true)
+  await onMessage({ chat: { id: OWNER }, text: '/start' }) // not a number: normal message, amount prompt dropped
+  await tap('stk:NVDA')
+  await tap(button('✏️ Other'))
+  await onMessage({ chat: { id: OWNER }, text: '5000' })
+  assert.match(texts().at(-1), /from 1 to 1000/)
+  sc.set({ quotes: quotes(15) })
+  await onMessage({ chat: { id: OWNER }, text: '$15' })
+  assert.match(texts().at(-1), /Buy <b>\$15<\/b> of <b>NVIDIA<\/b>\?/)
+  const confirm = button('✅ Buy $15')
+  const n = swaps().length
+  await tap(confirm.replace(/:15$/, ':25')) // forged amount on the same offer
+  assert.equal(swaps().length, n, 'only the typed amount')
+  sc.set({ quotes: quotes(10) }) // the card checks at $10
+  await tap('stk:NVDA') // the forged tap used up that offer; start again
+  await tap(button('✏️ Other'))
+  await onMessage({ chat: { id: OWNER }, text: '15' })
+  sc.set({ quotes: quotes(15) })
+  await tap(button('✅ Buy $15'))
+  assert.match(texts().at(-1), /Done! You bought/)
+  assert.equal(arg(swaps().at(-1), '--fromTokenQty'), '15')
 })

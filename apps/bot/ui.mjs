@@ -60,49 +60,52 @@ export const connectFirst = '🔒 Connect Binance first. It takes a few seconds.
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'
 
-const MARKET = [[/pre/i, '🌅 US market: pre-market · tokens trade 24/7'], [/after|post/i, '🌙 US market: after hours · tokens trade 24/7'], [/off|clos/i, '🌙 US market: closed · tokens trade 24/7'], [/open|regular|trad/i, '🟢 US market: open']]
-/** The facts a buyer wants, from the scan's own RWA data: 24h change, 52-week range, size, dividend, market hours. */
+const MARKET = [[/pre/i, 'Pre-market · token 24/7'], [/after|post/i, 'After hours · token 24/7'], [/off|clos/i, 'Closed · token 24/7'], [/open|regular|trad/i, 'Open']]
+/** Key facts as [label, value] rows, from the scan's own RWA data. */
 function facts(rows = []) {
-  const s = rows.find((r) => r.dyn?.stockInfo?.price)?.dyn
+  const si = rows.find((r) => r.dyn?.stockInfo?.price)?.dyn.stockInfo ?? {}
   const tok = (rows.find((r) => r.t?.type === 3) ?? rows[0])?.dyn
-  const si = s?.stockInfo ?? {}
   const out = []
-  if (Number(si.priceLow52w) && Number(si.priceHigh52w)) out.push(`📊 52-week range: ${usd(si.priceLow52w)} – ${usd(si.priceHigh52w)}`)
-  if (Number(si.marketCap)) out.push(`🏦 Company value: ${big(Number(si.marketCap))}`)
-  if (Number(si.dividendYield) > 0) out.push(`💵 Dividend: ${Number(si.dividendYield).toFixed(2)}% a year`)
+  if (Number(si.marketCap)) out.push(['Market cap', big(Number(si.marketCap))])
+  if (Number(si.priceLow52w) && Number(si.priceHigh52w)) out.push(['52-week', `${usd(si.priceLow52w)} – ${usd(si.priceHigh52w)}`])
+  if (Number(si.dividendYield) > 0) out.push(['Dividend', `${Number(si.dividendYield).toFixed(2)}% / yr`])
   const status = rows.find((r) => r.dyn?.statusInfo?.marketStatus)?.dyn.statusInfo.marketStatus // only Ondo reports it
   const m = MARKET.find(([re]) => re.test(status ?? ''))
-  if (m) out.push(m[1])
-  return { change: Number(tok?.tokenInfo?.priceChangePct24h), lines: out }
+  if (m) out.push(['US market', m[1]])
+  return { change: Number(tok?.tokenInfo?.priceChangePct24h), rows: out }
 }
-const firstSentence = (t = '') => { const x = t.split(/(?<=\.)\s/)[0] ?? ''; return x.length > 180 ? `${x.slice(0, 177)}…` : x }
+const firstSentence = (t = '') => { const x = t.split(/(?<=\.)\s/)[0] ?? ''; return x.length > 140 ? `${x.slice(0, 137)}…` : x }
+const arrow = (pct) => `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`
 
-/** One stock, in plain words. The provider comparison lives behind "Why?". */
-export function stockCard({ ticker, ref, best, rows }, { company, about, owner } = {}) {
+/** One stock: name, price, what the company does, a small facts table, one verdict line. Provider details sit behind Details. */
+export function stockCard({ ticker, ref, best, rows }, { company, about } = {}) {
   const f = facts(rows)
-  const lines = [
-    `<b>${esc(nameOf(ticker, company))}</b> (${esc(ticker)})`,
-    `<b>${usd(ref)}</b> per share${Number.isFinite(f.change) ? ` · ${move(f.change)} today` : ''}`,
+  const w = Math.max(0, ...f.rows.map(([k]) => k.length)) + 2
+  return [
+    `<b>${esc(nameOf(ticker, company))}</b> · ${esc(ticker)}`,
+    `<b>${usd(ref)}</b>${Number.isFinite(f.change) ? `   ${arrow(f.change)} today` : ''}`,
     ...(about ? [`<i>${esc(firstSentence(about))}</i>`] : []),
-    ...(f.lines.length ? ['', ...f.lines] : []),
+    ...(f.rows.length ? ['', `<pre>${f.rows.map(([k, v]) => esc(k.padEnd(w) + v)).join('\n')}</pre>`] : []),
     '',
-  ]
-  if (!best) {
-    lines.push('⚠️ <b>Not a good time to buy.</b>', "On-chain prices don't match the real price right now. Try again in a bit.")
-  } else {
-    lines.push('✅ <b>Good price right now</b>', `<i>Cheapest safe option: ${PROVIDER[best.t.type]}, ${vs(best.dev)}.</i>`)
-    if (owner) lines.push('', 'How much do you want to buy?')
-  }
-  return lines.join('\n')
+    best
+      ? `✅ <b>Fair price</b> · via ${PROVIDER[best.t.type]}, ${vs(best.dev)}`
+      : "⚠️ <b>Buying paused</b> · on-chain prices don't match the real price right now",
+  ].join('\n')
 }
-/** canBuy: amount buttons. guest: a good price but no wallet yet, so one Connect button that comes back to this stock. */
+/** canBuy: amount buttons + Other. guest: a good price but no wallet yet, so one Connect button that comes back to this stock. */
 export const stockButtons = (id, ticker, canBuy, guest = false) => ({
   inline_keyboard: [
     ...(canBuy ? [AMOUNTS.map((a) => ({ text: `Buy $${a}`, callback_data: `b:${id}:${a}` }))] : []),
     ...(guest ? [[{ ...connect$, callback_data: `cw:${ticker}` }]] : []),
-    [{ text: 'ℹ️ Why?', callback_data: `why:${ticker}` }, home$],
+    [...(canBuy ? [{ text: '✏️ Other', callback_data: `amt:${id}` }] : []), { text: 'ℹ️ Details', callback_data: `why:${ticker}` }, home$],
   ],
 })
+export const askAmount = (ticker) => `✏️ How much USDT of <b>${esc(nameOf(ticker))}</b>? Type an amount from $1 to $1,000.`
+export const askAmountMarkup = { force_reply: true, input_field_placeholder: 'e.g. 15' }
+export const badAmount = 'Type a number from 1 to 1000, like <code>15</code>.'
+const money = (n) => (Number.isInteger(n) ? `$${n}` : usd(n))
+export const confirmBuy = (usdt, ticker) => `Buy <b>${money(usdt)}</b> of <b>${esc(nameOf(ticker))}</b>?\n<i>The price is checked again right before buying.</i>`
+export const confirmButtons = (id, usdt) => ({ inline_keyboard: [[{ text: `✅ Buy ${money(usdt)}`, callback_data: `b:${id}:${usdt}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 export const whyButtons = (ticker) => ({ inline_keyboard: [[{ text: '← Back', callback_data: `stk:${ticker}` }, home$]] })
 
 const signed = (n) => `${n < 0 ? '−' : '+'}${usd(Math.abs(n))}`
