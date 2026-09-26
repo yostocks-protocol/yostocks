@@ -149,7 +149,7 @@ async function showStock(chat, ticker, owner) {
   const m = await stockMeta((s.best ?? s.rows[0]).t)
   const id = newId()
   if (owner && s.best) pending.set(id, { chat, ticker: s.ticker, at: Date.now() })
-  return card(chat, ui.stockCard(s, { company: m?.company, about: m?.about, owner }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
+  return card(chat, ui.stockCard(s, { company: m?.company, about: m?.about }), { photo: m?.photo ?? brand.logo, reply_markup: ui.stockButtons(id, s.ticker, owner && !!s.best, !owner && !!s.best) })
 }
 
 /** Spendable USDT on BSC (null if unknown) and the address to top up. */
@@ -221,8 +221,24 @@ function onLinked(chat, text = '') {
   return showHome(chat, true, true)
 }
 
+const awaiting = new Map() // chat → { ticker, at }: tapped ✏️ Other, the next number they type is the amount
+
+/** A typed amount after ✏️ Other: validate, then one confirm button (the guard runs again on tap). */
+function customAmount(chat, w, text) {
+  const n = Number(text.trim().replace(/^\$\s*/, '').replace(',', '.'))
+  if (!(n >= 1 && n <= 1000)) return say(chat, ui.badAmount, { reply_markup: ui.askAmountMarkup })
+  awaiting.delete(chat)
+  const usdt = Math.round(n * 100) / 100
+  const id = newId()
+  pending.set(id, { chat, ticker: w.ticker, fixed: usdt, at: Date.now() })
+  return say(chat, ui.confirmBuy(usdt, w.ticker), { reply_markup: ui.confirmButtons(id, usdt) })
+}
+
 export async function onMessage(msg) {
   const chat = msg.chat.id
+  const w = awaiting.get(chat)
+  if (w && /^\s*\$?\s*[\d.,]+\s*$/.test(msg.text ?? '') && Date.now() - w.at < 10 * 60_000) return customAmount(chat, w, msg.text)
+  awaiting.delete(chat) // typed something else: back to normal
   if (linked(chat)) return asUser(chat, () => onLinked(chat, msg.text))
   if (String(chat) !== OWNER) return onPublic(chat, msg.text)
   const [head, ...rest] = (msg.text ?? '').trim().split(/\s+/)
@@ -329,7 +345,7 @@ async function callback(q, chat) {
   const owner = isOwner || linked(chat) // may trade (buy / sell / My stocks), each on their own wallet
   let [action, id, arg] = q.data.split(':')
   // Navigation buttons: no state, keep the keyboard of the message they came from.
-  if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw'].includes(action)) {
+  if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'amt'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
     if (action === 'home') return showHome(chat, owner, linked(chat))
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
@@ -343,19 +359,25 @@ async function callback(q, chat) {
       return say(chat, ui.quoteCard(s), { reply_markup: ui.whyButtons(id) })
     }
     if (!owner) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
+    if (action === 'amt') {
+      const p = pending.get(id)
+      if (!p?.ticker || (p.chat !== chat && !isOwner)) return say(chat, ui.notice('This button has expired. Tap the stock again.'))
+      awaiting.set(chat, { ticker: p.ticker, at: Date.now() })
+      return say(chat, ui.askAmount(p.ticker), { reply_markup: ui.askAmountMarkup })
+    }
     return action === 'pf' ? showPortfolio(chat) : sellOffer(chat, id)
   }
   const p = pending.get(id)
-  if (action === 'b' && p) { // "Buy $10" on a stock card
+  if (action === 'b' && p) { // "Buy $10" on a stock card, or "✅ Buy $15" after typing an amount
     action = 'buy'
     p.usdt = Number(arg)
-    if (!ui.AMOUNTS.includes(p.usdt)) p.ticker = null
+    if (p.fixed ? p.usdt !== p.fixed : !ui.AMOUNTS.includes(p.usdt)) p.ticker = null // only amounts we offered
   }
   pending.delete(id) // one tap = one decision, even on double-tap
   await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
   await tg('editMessageReplyMarkup', { chat_id: chat, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } })
   // The owner may use any pending offer; a connected user only buy/sell offers made in their own chat.
-  const allowed = p && (isOwner || (p.chat === chat && ['buy', 'sell'].includes(action)))
+  const allowed = p && (isOwner || (p.chat === chat && ['buy', 'sell', 'no'].includes(action)))
   if (!allowed || action === 'no') return say(chat, ui.notice(allowed ? 'Cancelled.' : 'This button has expired. Send /buy again.'))
   if (action === 'save' && p.rule) {
     store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])

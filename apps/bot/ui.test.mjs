@@ -62,13 +62,12 @@ test('sell card, sell button and sold receipt in plain words', () => {
   assert.match(r, /✅ <b>Sold!<\/b> You got <b>\$4\.98<\/b>\nfor 0\.0224 NVIDIA shares\./)
 })
 
-test('stock card: name, price, one verdict line; details only behind Why?', () => {
-  const best = { t: { type: 3, symbol: 'NVDAB' }, ok: true, perShare: 225.97, dev: 0.02 }
-  const c = ui.stockCard({ ticker: 'NVDA', ref: 225.93, rows: [best], best }, { owner: true })
-  assert.match(c, /<b>NVIDIA<\/b> \(NVDA\)\n<b>\$225\.93<\/b> per share\n\n✅ <b>Good price right now<\/b>\n<i>Cheapest safe option: bStocks, 0\.02% above the stock price\.<\/i>\n\nHow much do you want to buy\?/)
-  assert.match(ui.stockCard({ ticker: 'NVDA', ref: 1, rows: [], best: undefined }, {}), /Not a good time to buy/)
-  assert.deepEqual(ui.stockButtons('i', 'NVDA', true).inline_keyboard.flat().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', 'ℹ️ Why?', '🏠 Home'])
-  assert.deepEqual(ui.homeButtons(true).inline_keyboard.flat().map((b) => b.text), ['NVIDIA', 'Tesla', 'Apple', 'Strategy', 'Meta', 'Google', 'S&P 500', 'Nasdaq 100', '💼 My stocks'])
+test('stock card: name, price, one verdict line; provider details only behind Details', () => {
+  const best = { t: { type: 3, symbol: 'NVDAB' }, ok: true, dev: 0.02 }
+  const c = ui.stockCard({ ticker: 'NVDA', ref: 225.93, rows: [best], best })
+  assert.match(c, /^<b>NVIDIA<\/b> · NVDA\n<b>\$225\.93<\/b>\n\n✅ <b>Fair price<\/b> · via bStocks, 0\.02% above the stock price$/)
+  assert.match(ui.stockCard({ ticker: 'NVDA', ref: 1, rows: [], best: undefined }), /Buying paused/)
+  assert.deepEqual(ui.stockButtons('i', 'NVDA', true).inline_keyboard.map((r) => r.map((b) => b.text)), [['Buy $5', 'Buy $10', 'Buy $25'], ['✏️ Other', 'ℹ️ Details', '🏠 Home']])
 })
 
 test('market card: human summary from the real CMC payload, with a sentiment takeaway, no raw JSON', async () => {
@@ -123,7 +122,7 @@ test('home lists each stock with price and 24h change; nothing when prices are u
   assert.ok(!/24h change/.test(ui.home([])))
 })
 
-test('stock card: what the company does, 24h change, 52-week range, company value, dividend, market hours', () => {
+test('stock card: what the company does, 24h change, and a facts table (market cap, 52-week, dividend, market hours)', () => {
   const dyn = {
     tokenInfo: { priceChangePct24h: '-4.24' },
     stockInfo: { price: '159.49', priceLow52w: '81.81', priceHigh52w: '365.21', marketCap: '64445706745', dividendYield: '0.5' },
@@ -131,14 +130,11 @@ test('stock card: what the company does, 24h change, 52-week range, company valu
   }
   const best = { t: { type: 3, symbol: 'MSTRB' }, dyn, ok: true, dev: 0.1 }
   const c = ui.stockCard({ ticker: 'MSTR', ref: 159.49, rows: [best], best }, { about: 'Strategy is a bitcoin treasury company. It also sells software.' })
-  assert.match(c, /\$159\.49<\/b> per share · 🔴 −4\.2% today/)
+  assert.match(c, /<b>\$159\.49<\/b>   ▼ 4\.24% today/)
   assert.match(c, /<i>Strategy is a bitcoin treasury company\.<\/i>/, 'first sentence only')
-  assert.match(c, /52-week range: \$81\.81 – \$365\.21/)
-  assert.match(c, /Company value: \$64\.4B/)
-  assert.match(c, /Dividend: 0\.50% a year/)
-  assert.match(c, /US market: pre-market · tokens trade 24\/7/)
+  assert.match(c, /<pre>Market cap  \$64\.4B\n52-week     \$81\.81 – \$365\.21\nDividend    0\.50% \/ yr\nUS market   Pre-market · token 24\/7<\/pre>/)
   const off = { t: { type: 1 }, dyn: { statusInfo: { marketStatus: 'offhours' } } }
   const quiet = { ...best, dyn: { ...dyn, statusInfo: { marketStatus: null } } } // bStocks: no status
-  assert.match(ui.stockCard({ ticker: 'MSTR', ref: 1, rows: [quiet, off], best: quiet }), /US market: closed/, 'status from whichever token has it')
-  assert.ok(ui.stockCard({ ticker: 'X', ref: 1, rows: [{ t: { type: 3 }, dyn: { stockInfo: { dividendYield: '0' } } }], best: undefined }).indexOf('Dividend') < 0, 'no zero dividend line')
+  assert.match(ui.stockCard({ ticker: 'MSTR', ref: 1, rows: [quiet, off], best: quiet }), /US market   Closed/, 'status from whichever token has it')
+  assert.ok(!ui.stockCard({ ticker: 'X', ref: 1, rows: [{ t: { type: 3 }, dyn: { stockInfo: { dividendYield: '0' } } }], best: undefined }).includes('Dividend'), 'no zero dividend line')
 })
