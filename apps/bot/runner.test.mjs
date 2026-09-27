@@ -119,14 +119,15 @@ test('runOnce: missed slot (bot was down >2h) is skipped without quoting', async
   assert.equal(h.calls.scan, 0)
 })
 
-test('runOnce: each chat has its own daily cap and runs in its own wallet; a disconnected wallet is skipped', async () => {
+test('runOnce: each chat has its own daily cap and runs in its own wallet; a disconnected wallet pauses silently', async () => {
   const other = { ...daily, usdt: 45 }
   const h = harness([S('mine', { ...daily, usdt: 45 }), S('theirs', other, { chat: 77 }), S('gone', daily, { chat: 88 })])
   const wallets = []
   const r = await runOnce({ ...h.deps(MON_14 + 60_000), inWallet: (chat, fn) => { wallets.push(chat); return fn() }, canTrade: (chat) => chat !== 88 })
   assert.equal(r.mine.status, 'FINISHED')
   assert.equal(r.theirs.status, 'FINISHED', '45 + 45 > 50, but they are different wallets')
-  assert.deepEqual(r.gone, { status: 'SKIPPED', why: 'wallet not connected' })
+  assert.equal(r.gone, undefined, 'paused: nothing recorded')
+  assert.ok(!h.calls.say.some((m) => m.chat === 88), 'and no daily "skipped" spam')
   assert.deepEqual(wallets.sort(), [42, 77])
 })
 
