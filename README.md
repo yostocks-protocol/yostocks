@@ -51,6 +51,8 @@ the bot checks prices every minute and messages you once when the stock moves th
 | First buy through the bot: 5 USDT → 0.0224 NVDAB (guard picked bStocks −0.12% over Ondo +0.32%, xStocks had no liquidity; 0.01% slippage) | [`0xfe3a3f…04b9`](https://bscscan.com/tx/0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9) |
 | x402 payment to macropulse (economic calendar), 0.1 USD1, EIP-3009 | [`0xe21fbb…387a`](https://bscscan.com/tx/0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a) |
 | x402 payment to CoinMarketCap MCP (market snapshot), 0.01 U, settled | [`0xff8868…3123`](https://bscscan.com/tx/0xff8868500d6dcd78e8b1c3be02702d9f475f5006197212355a8b4e6b54cd3123) |
+| 🎯 Sell higher, filled by the agent's watcher: target reached → guarded sell, 0.0221 NVDAB → 4.973 USDT, 16 s after it was set | [`0xf62220…764f`](https://bscscan.com/tx/0xf62220911f6a3fbf69141c24261d548aae1094418fd333cbc4d3b17ec9a7764f) |
+| 🎯 Buy if it drops, filled by the agent's watcher: target reached → guarded buy, 5 USDT → 0.02224 NVDAB | [`0xaeeeaa…3871`](https://bscscan.com/tx/0xaeeeaaa2c4ed6e34da16ebf61bba9adc28a7eeea51fbb17aa78c56c767ec3871) |
 | Permit2 approval dispatched by `baw x402-payment sign` (gas-free) | [`0x043a0a…bfd6`](https://bscscan.com/tx/0x043a0a1e99a2f0f977b73e309c0e005a15970061bfffe334948e69d8f900bfd6) |
 
 ## How it works
