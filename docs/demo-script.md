@@ -1,23 +1,27 @@
 # Demo video script (≤ 4:00)
 
-Record on a phone (Telegram) plus a laptop (website, BscScan, terminal). Keep the wallet funded with about 30 USDT on BSC.
-Say the lines in your own words. The times are targets.
+Record on a phone (Telegram) plus a laptop (website, BscScan). Keep the wallet funded with about 40 USDT on BSC.
+Say the lines in your own words. The times are targets; button labels are exactly what the bot shows.
 
 | Time | Screen | Say |
 |---|---|---|
-| 0:00–0:20 | yostocks.xyz hero | "The same stock, like NVIDIA, is on BNB Chain three times: Ondo, xStocks and bStocks. They trade at different prices, and some quotes are simply wrong. yostocks buys from the cheapest one that matches the real stock price, or it doesn't buy at all." |
-| 0:20–0:45 | Telegram: @yostocksbot → Start → NVIDIA → **🔗 Connect Binance to buy** → Binance app approve → back on NVIDIA | "No seed phrase and no deposit to us. I connect my own Binance Agentic Wallet and set how much the agent may spend." Show the pairing code matching, then ✅ Wallet connected. |
-| 0:45–1:25 | Tap **NVIDIA** → card → **ℹ️ Why?** | "It checked every provider against the live NVIDIA price, per share, including the token's share multiplier. bStocks is 0.1% under, Ondo is 0.3% over, xStocks has no liquidity, so it's skipped." |
-| 1:25–2:00 | **Buy $10** → ⏳ → ✅ receipt → tap BscScan link | "Before the swap it runs the guard again, because prices move. The swap is on BSC mainnet, and the receipt only comes after the order is actually filled." |
-| 2:00–2:30 | **💼 My stocks**: PnL chart + lines | "What I own, what it's worth, and profit or loss since I bought, from my own order history. The chart is profit over time from hourly prices." |
-| 2:30–2:50 | Sell NVIDIA → Sell card → confirm | "Selling goes through the same guard, so I never dump below the real price." |
-| 2:50–3:15 | `/strategy buy $10 of NVDA every Monday, skip earnings` → Save | "Plain-English autopilot. The AI only translates. Fixed code enforces the rule, the guard and a daily spend cap." |
-| 3:15–3:35 | `/macro` → Pay → calendar | "The agent pays for its own data: this week's CPI and Fed calendar, bought agent-to-agent over x402 from the same wallet." |
-| 3:35–3:50 | yoguard in BNB Agent Studio (job + ERC-8004 registration) | "The guard is also sold to other agents as a BNB Agent Studio seller over ERC-8183." |
-| 3:50–4:00 | README mainnet proof table / DX_LOG | "Everything is on mainnet, open source, and we logged 30+ developer-experience findings along the way." |
+| 0:00–0:15 | yostocks.xyz: globe hero, then scroll to the rotating stock cards and the chat mock | "Buy US stocks right in Telegram, any day, any hour. NVIDIA, Tesla, Apple, as tokens on BNB Chain." |
+| 0:15–0:30 | @yostocksbot → Start: the price board picture | "Every stock with its price and 24-hour move, in one picture." |
+| 0:30–0:55 | Tap **NVIDIA** → card (facts table, **✅ Fair price**) → **🔗 Connect Binance to buy** → Binance app, check the code, approve → back on NVIDIA with Buy buttons | "The same stock trades three times on BNB Chain: Ondo, xStocks and bStocks. yostocks checks every one against the real NVIDIA price. To buy, I connect my own Binance Agentic Wallet: no seed phrase, no deposit to us, and the spending limit is mine." |
+| 0:55–1:25 | **Buy $10** → ⏳ → **✅ Done! You bought NVIDIA** → tap *See the transaction ↗* (BscScan) | "One tap. It checks the price again right before the swap, buys on BSC mainnet, and only says done once it's filled." |
+| 1:25–1:45 | **ℹ️ Details** (provider comparison) | "Why bStocks? It's the cheapest safe route. A quote that's off the real price, or pays almost nothing, is refused." |
+| 1:45–2:05 | **💼 My stocks**: PnL chart + profit line | "What I own, what it's worth, and my profit or loss, from my own order history." |
+| 2:05–2:40 | NVIDIA → **🎯 Buy if it drops** → −5% → $10 → **✅ Place order** → "Nothing is bought yet" → My stocks → **📋 Orders** | "Now the agent works while I sleep. A limit order waits inside my Binance wallet and buys by itself if NVIDIA drops 5%. The bot watches it and tells me when it fills." |
+| 2:40–2:55 | NVIDIA → **🔁 Auto-invest** → $10 → Every Monday → **✅ Start** | "Or invest the same amount every week. Every buy still passes the price check, with a daily cap." |
+| 2:55–3:10 | My stocks → **🛡 Safety** | "And I can see the brakes: my daily limit and what's left, risky trades blocked, token approvals I can clean up." |
+| 3:10–3:25 | **🔔 Alert me** on Tesla → ±5% | "No wallet? Anyone can set a price alert and get one message when it moves." |
+| 3:25–3:40 | `/macro` → Pay → calendar | "The agent also pays for its own data: this week's CPI and Fed calendar, bought agent-to-agent over x402." |
+| 3:40–3:50 | yoguard in BNB Agent Studio (job + ERC-8004 registration) | "The price guard is sold to other agents too, as a BNB Agent Studio seller." |
+| 3:50–4:00 | README mainnet proof table / DX_LOG | "All on BSC mainnet, open source, with 35+ developer-experience findings logged along the way." |
 
 ## Before recording
-- `docker exec <bot container> baw wallet status --json` shows CONNECTED (owner session, for `/macro`).
-- Use a **second** Binance account for the Connect scene. Connecting the owner wallet from another chat signs the bot's owner session out.
-- US market hours help: Ondo sells are refused outside them.
+- Owner wallet CONNECTED (Telegram: 🔗 Connect Binance to buy, or `docker exec <bot container> baw wallet status --json`). Needed for `/macro` and for everyone's price verdicts.
+- The Connect scene: record it with the owner's own wallet after tapping **🔌 Disconnect**, or with a second Binance account. Never connect the owner wallet from a second chat: one session per wallet.
+- Cancel the demo limit order afterwards (📋 Orders → ✖ Cancel 1) and stop the auto-invest (🔁 Auto-invest → ⏹ Stop 1) unless you want them to run.
+- US market hours help: Ondo sells are refused outside them. bStocks trade 24/7.
 - yoguard: deploy on the 48h trial right before this recording (issue #10).
