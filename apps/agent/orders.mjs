@@ -1,10 +1,14 @@
-// Things the Agentic Wallet does while you're away: limit orders ("buy if it drops", "sell higher"),
-// plus the wallet's own brakes (daily limit, token approvals). Same guard idea as yo.mjs: prices are
-// per share, checked against the real stock price before anything is placed.
-import { baw, market, holdings, assertSignedIn, USDT } from './yo.mjs'
+// Things the agent does while you're away: "buy if it drops" and "sell higher", plus the wallet's own
+// brakes (daily limit, token approvals).
+//
+// Why not `baw limit-order`: for tokenized stocks it answers `Raw limit orders are not supported.`
+// (SERVICE_ERROR code 2, checked live on NVDAB, buy and sell; a BNB limit order in the same wallet works).
+// So the agent keeps the condition itself: it watches the real share price and, when the target is
+// reached, runs the same guarded swap as the Buy/Sell buttons from the user's own wallet.
+import { baw, market, scan, scanSell, execute, executeSell, holdings, assertSignedIn, USDT } from './yo.mjs'
 
-const SLIPPAGE = process.env.YO_SLIPPAGE ?? '1' // %
 export const TERMINAL = ['FINISHED', 'FAILED', 'EXPIRED', 'CANCELED']
+export const MAX_AGE_MS = 30 * 864e5 // a condition nobody hit in 30 days expires
 const ok = (r, what) => {
   assertSignedIn(r)
   if (!r.success) throw new Error(`${what}: ${r.error?.message ?? JSON.stringify(r.error)}`)
@@ -12,7 +16,7 @@ const ok = (r, what) => {
 }
 
 /**
- * Where a trigger may sit, relative to the real price. Pure.
+ * Where a target may sit, relative to the real price. Pure.
  * buy: below the price (at or above would just fill now), at most 50% below.
  * sell: above the price, at most 2x. Anything else is refused, never "fixed".
  */
@@ -25,40 +29,43 @@ export function checkTrigger(side, sharePrice, ref) {
   return null
 }
 
-/** The token limit orders use for a ticker: bStocks (Ondo tokens are refused by limit orders), else xStocks. */
-async function limitToken(ticker) {
-  const m = await market(ticker)
-  const row = m.rows.find((r) => r.t.type === 3) ?? m.rows.find((r) => r.t.type === 2)
-  if (!row) throw new Error(`no ${ticker} token supports limit orders`)
-  return { ...row, ref: m.ref }
-}
+/** Has this order's condition been met at `price` (the real share price)? Pure. */
+export const reached = (o, price) => (o.side === 'buy' ? price <= o.price : price >= o.price)
 
-/** Buy `usdt` of the ticker when a share drops to `sharePrice`. Returns { strategyId, trigger, token }. */
-export async function placeBuy(ticker, usdt, sharePrice) {
-  const r = await limitToken(ticker)
-  const why = checkTrigger('buy', sharePrice, r.ref)
+/** Check a new "buy if it drops" against today's price; nothing is sent to the chain yet. */
+export async function planBuy(ticker, usdt, sharePrice) {
+  const { ref } = await market(ticker)
+  const why = checkTrigger('buy', sharePrice, ref)
   if (why) throw new Error(`price refused: ${why}`)
-  const trigger = +(sharePrice * r.multiplier).toFixed(4) // the order triggers on the TOKEN's USD price
-  const d = ok(await baw('limit-order', 'buy', '--triggerPrice', String(trigger), '--fromTokenQty', String(usdt), '--fromToken', USDT,
-    '--toToken', r.t.contractAddress, '--binanceChainId', '56', '--slippage', SLIPPAGE), 'limit buy')
-  return { strategyId: d.strategyId, trigger, token: r.t }
+  return { side: 'buy', ticker, usdt, price: sharePrice }
 }
 
-/** Sell every held share of the ticker's limit-order token when a share reaches `sharePrice`. */
-export async function placeSell(ticker, sharePrice) {
-  const r = await limitToken(ticker)
-  const why = checkTrigger('sell', sharePrice, r.ref)
+/** Check a new "sell higher": the price, and that the wallet holds some of this stock. */
+export async function planSell(ticker, sharePrice) {
+  const [{ ref }, held] = await Promise.all([market(ticker), holdings()])
+  const why = checkTrigger('sell', sharePrice, ref)
   if (why) throw new Error(`price refused: ${why}`)
-  const held = (await holdings()).find((h) => h.t.contractAddress.toLowerCase() === r.t.contractAddress.toLowerCase())
-  if (!held) throw new Error(`you don't hold ${r.t.symbol}, the token that supports limit orders`)
-  const trigger = +(sharePrice * r.multiplier).toFixed(4)
-  const d = ok(await baw('limit-order', 'sell', '--triggerPrice', String(trigger), '--fromTokenQty', String(held.qty), '--fromToken', r.t.contractAddress,
-    '--toToken', USDT, '--binanceChainId', '56', '--slippage', SLIPPAGE), 'limit sell')
-  return { strategyId: d.strategyId, trigger, token: r.t, qty: held.qty, shares: Number(held.qty) * r.multiplier }
+  if (!held.some((h) => h.t.ticker === ticker)) throw new Error(`you don't hold any ${ticker} yet`)
+  return { side: 'sell', ticker, price: sharePrice }
 }
 
-export const order = async (strategyId) => ok(await baw('limit-order', 'list', '--strategyId', String(strategyId)), 'limit order').list?.[0] ?? null
-export const cancel = async (strategyId) => ok(await baw('limit-order', 'cancel', '--strategyId', String(strategyId)), 'cancel')
+/**
+ * The condition was met: trade now, through the guard, in the current wallet context.
+ * Returns { status: 'FINISHED', tx, got } | { status: 'WAIT', why } (guard said no this minute) | { status: 'FAILED', why }.
+ */
+export async function fill(o) {
+  if (o.side === 'buy') {
+    const s = await scan(o.ticker, o.usdt)
+    if (!s.best) return { status: 'WAIT', why: 'no safe route this minute' }
+    if (s.best.perShare > o.price * 1.01) return { status: 'WAIT', why: 'route price above the target' }
+    const r = await execute(s.best.t, o.usdt)
+    return r.status === 'FINISHED' ? { status: 'FINISHED', tx: r.tx, got: r.got, symbol: s.best.t.symbol } : { status: 'FAILED', why: `order ${r.orderId} ${r.status}` }
+  }
+  const s = await scanSell(o.ticker, 'all')
+  if (!s.ok) return { status: 'WAIT', why: s.why ?? 'sell quote refused this minute' }
+  const r = await executeSell(s.row.t, s.qty)
+  return r.status === 'FINISHED' ? { status: 'FINISHED', tx: r.tx, got: r.got, symbol: s.row.t.symbol } : { status: 'FAILED', why: `order ${r.orderId} ${r.status}` }
+}
 
 /** The wallet's brakes: daily limit and what's left, risky-trade handling, session end, token approvals. */
 export async function safety() {
