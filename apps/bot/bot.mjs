@@ -5,7 +5,7 @@ import { scan, market, execute, scanSell, executeSell, baw, wallet, USDT, assert
 import * as portfolio from '../agent/portfolio.mjs'
 import * as orders from '../agent/orders.mjs'
 import { parseStrategy, validate, describe } from './strategy.mjs'
-import { runOnce, DAILY_CAP } from './runner.mjs'
+import { runOnce, DAILY_CAP, lastSlot } from './runner.mjs'
 import * as ui from './ui.mjs'
 import * as analyst from '../agent/analyst.mjs'
 import * as cmc from '../agent/cmc.mjs'
@@ -398,8 +398,13 @@ async function agentAction(chat, action, id, arg) {
     const p = mine(id, chat)
     pending.delete(id)
     if (!p?.rule) return expired(chat)
-    store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date().toISOString() }])
-    return say(chat, ui.autoSaved(p.rule), { reply_markup: ui.autoSavedButtons })
+    const now = Date.now()
+    store.save([...store.load(), { id, chat, rule: p.rule, createdAt: new Date(now).toISOString() }])
+    // The first slot is the next one after saving (a slot that already passed today never runs retroactively).
+    const first = new Date(lastSlot(p.rule, now) + (p.rule.every === 'day' ? 864e5 : 7 * 864e5))
+    const wib = new Date(+first + 7 * 36e5).toISOString()
+    const label = `${'Sun Mon Tue Wed Thu Fri Sat'.split(' ')[first.getUTCDay()]} ${first.getUTCDate()} ${'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[first.getUTCMonth()]}, ${wib.slice(11, 16)} WIB` // not toLocale*: ICU spells Sep as "Sept"
+    return say(chat, ui.autoSaved(p.rule, label), { reply_markup: ui.autoSavedButtons })
   }
   if (action === 'ail') {
     const list = store.load().filter((s) => s.chat === chat)
@@ -436,6 +441,7 @@ async function agentAction(chat, action, id, arg) {
     return say(chat, ui.confirmDip(p.ticker, Number(arg), p.price, p.ref), { reply_markup: ui.placeButtons('lb', f) })
   }
   if (action === 'tp') { // from My stocks: pick how high to sell
+    if (!isTicker(id)) return expired(chat)
     const { ref } = await market(id)
     const t = newId()
     pending.set(t, { chat, ticker: id, ref, at: Date.now() })
@@ -453,7 +459,16 @@ async function agentAction(chat, action, id, arg) {
     const p = mine(id, chat)
     pending.delete(id)
     if (!p?.price) return expired(chat)
-    const r = action === 'lb' ? await orders.placeBuy(p.ticker, p.usdt, p.price) : await orders.placeSell(p.ticker, p.price)
+    if (action === 'lb') { // a limit buy with too little USDT is accepted now and fails later: say so up front
+      const f = await funds()
+      if (f.usdt != null && f.usdt < p.usdt) return say(chat, ui.notEnough(p.usdt, f.usdt, f.address), { reply_markup: ui.doneButtons })
+    }
+    const r = await (action === 'lb' ? orders.placeBuy(p.ticker, p.usdt, p.price) : orders.placeSell(p.ticker, p.price)).catch((e) => {
+      const why = /^price refused: (.*)|^(you don't hold .*|no .* token supports limit orders)$/.exec(e.message)
+      if (!why) throw e
+      return { refused: why[1] ?? why[2] }
+    })
+    if (r.refused) return say(chat, ui.limitRefused(r.refused), { reply_markup: ui.doneButtons })
     const o = { strategyId: String(r.strategyId), chat, side: action === 'lb' ? 'buy' : 'sell', ticker: p.ticker, usdt: p.usdt, price: p.price, trigger: r.trigger, status: 'WORKING', at: new Date().toISOString() }
     orderStore.save([...orderStore.load(), o])
     return say(chat, ui.orderPlaced(o), { reply_markup: ui.orderButtons })
@@ -487,19 +502,32 @@ async function agentAction(chat, action, id, arg) {
     const p = mine(id, chat)
     pending.delete(id)
     if (!p?.approvals) return expired(chat)
+    if (orderStore.load().some((o) => o.chat === chat && !orders.TERMINAL.includes(o.status))) { // an order was placed since the Safety card
+      return say(chat, ui.notice('You have an open order now, and it needs these approvals to fill. Nothing was removed.'), { reply_markup: ui.orderButtons })
+    }
     return say(chat, ui.revoked(await orders.revokeAll(p.approvals)), { reply_markup: ui.doneButtons })
   }
+}
+
+// Alert taps are open to everyone, so a price is read from Binance at most once per ticker per 30 s.
+const priceCache = new Map()
+async function livePrice(ticker) {
+  const c = priceCache.get(ticker)
+  if (c && Date.now() - c.at < 30_000) return c.p
+  const [p] = await prices([ticker])
+  priceCache.set(ticker, { at: Date.now(), p })
+  return p
 }
 
 async function alertAction(chat, action, id, arg) {
   const mineA = () => alertStore.load().filter((a) => a.chat === chat)
   if (action === 'al' || action === 'alp') {
     if (!isTicker(id)) return expired(chat)
-    const [p] = await prices([id])
+    if (action === 'alp' && !ui.ALERT_PCTS.includes(Number(arg))) return expired(chat)
+    if (action === 'alp' && mineA().length >= ui.MAX_ALERTS) return say(chat, ui.alertLimit, { reply_markup: ui.alertSetButtons })
+    const p = await livePrice(id)
     if (!p) return say(chat, ui.notice(`No live price for ${id} right now.`))
     if (action === 'al') return say(chat, ui.alertCard(id, p.price), { reply_markup: ui.alertButtons(id, p.price) })
-    if (!ui.ALERT_PCTS.includes(Number(arg))) return expired(chat)
-    if (mineA().length >= ui.MAX_ALERTS) return say(chat, ui.alertLimit, { reply_markup: ui.alertSetButtons })
     const a = { id: newId(), chat, ticker: id, ref: p.price, pct: Number(arg), at: new Date().toISOString() }
     alertStore.save([...alertStore.load(), a])
     return say(chat, ui.alertSet(a), { reply_markup: ui.alertSetButtons })

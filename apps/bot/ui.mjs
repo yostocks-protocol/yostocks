@@ -55,7 +55,7 @@ export const connected = (address, usdt) =>
   usdt == null || usdt >= AMOUNTS[0] || !address ? `✅ <b>Connected!</b>${usdt ? ` You have ${usd(usdt)} to spend.` : ''}` : `✅ <b>Connected!</b> Now add USDT to start.\n${addFunds(address)}`
 export const notEnough = (need, have, address) => `💸 <b>Not enough USDT.</b> You have ${usd(have)}, this needs ${usd(need)}.${address ? `\n${addFunds(address)}` : ''}`
 export const connectFailed = '⌛ Not connected: the code expired. Tap Connect to try again.'
-export const disconnected = '🔌 Disconnected.'
+export const disconnected = '🔌 <b>Disconnected.</b>\nAuto-invest pauses until you connect again. Orders that were waiting stay in your Binance wallet: cancel them in the Binance app if you don\'t want them.'
 export const sessionEnded = '🔐 <b>Please connect Binance again.</b>\nFor your safety the connection lasts up to 7 days.'
 export const connectFirst = '🔒 Connect Binance first. It takes a few seconds.'
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
@@ -149,6 +149,7 @@ export const placeButtons = (action, id) => ({ inline_keyboard: [[{ text: '✅ P
 const orders$ = { text: '📋 Orders', callback_data: 'ord' }
 export const orderButtons = { inline_keyboard: [[orders$, home$]] }
 const orderLine = (o) => o.side === 'buy' ? `Buy $${esc(o.usdt)} of ${esc(nameOf(o.ticker))} at ${usd(o.price)}` : `Sell ${esc(nameOf(o.ticker))} at ${usd(o.price)}`
+export const limitRefused = (why) => `🎯 <b>Order not placed.</b> ${esc(why)}.`
 export const orderPlaced = (o) => `📌 <b>Order placed.</b> ${orderLine(o)}.\nNothing ${o.side === 'buy' ? 'is bought' : 'is sold'} yet: it waits in your Binance wallet, and I'll message you when it fills.`
 const STATUS = { WORKING: 'waiting', TRIGGERED: 'filling now', PENDING: 'filling now', FINISHED: 'filled', FAILED: 'failed', EXPIRED: 'expired', CANCELED: 'canceled' }
 export function ordersList(list) {
@@ -215,7 +216,7 @@ export const autoFreqButtons = (id) => ({ inline_keyboard: [[{ text: 'Every day'
 export const confirmAuto = (r) => `🔁 ${autoLine(r)}?\n<i>Only at a fair price; skipped if the price check fails. Stop anytime in My stocks → 🔁 Auto-invest.</i>`
 export const autoStartButtons = (id) => ({ inline_keyboard: [[{ text: '✅ Start', callback_data: `ais:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 const autos$ = { text: '🔁 Auto-invest', callback_data: 'ail' }
-export const autoSaved = (r) => `✅ <b>Auto-invest on.</b> ${autoLine(r)}.\nI'll message you after every buy.`
+export const autoSaved = (r, first) => `✅ <b>Auto-invest on.</b> ${autoLine(r)}.\nFirst buy: <b>${esc(first)}</b>. I'll message you after every buy.`
 export const autoSavedButtons = { inline_keyboard: [[autos$, home$]] }
 export const autoList = (list) => list.length
   ? ['🔁 <b>Your auto-invest</b>', '', ...list.map((s, i) => `${i + 1}. ${autoLine(s.rule)}${s.runs?.length ? ` · <i>last: ${esc(s.runs.at(-1).status.toLowerCase())}</i>` : ''}`)].join('\n')

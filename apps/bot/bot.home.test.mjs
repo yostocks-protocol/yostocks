@@ -156,7 +156,7 @@ test('any user: tap a stock → Connect Binance → approve → back on that sto
 
   await tap('home', U)
   await tap(button('🔌 Disconnect'), U)
-  assert.match(texts().at(-1), /Disconnected/)
+  assert.match(texts().at(-1), /Disconnected[\s\S]*Auto-invest pauses[\s\S]*stay in your Binance wallet/)
   assert.equal(mine().at(-1).slice(0, 2).join(' '), 'auth signout')
   await tap('pf', U)
   assert.match(texts().at(-1), /Connect Binance first/)
@@ -388,7 +388,7 @@ test('🔁 Auto-invest: $10 every Monday from the stock card, saved for this cha
   await tap(button('Every Monday'))
   assert.match(texts().at(-1), /Buy \$10 of NVIDIA every Monday at 21:00 WIB\?/)
   await tap(button('✅ Start'))
-  assert.match(texts().at(-1), /Auto-invest on/)
+  assert.match(texts().at(-1), /Auto-invest on[\s\S]*First buy: <b>Mon \d{1,2} \w{3}, 21:00 WIB<\/b>/)
   const s = store.load().at(-1)
   assert.equal(s.chat, OWNER)
   assert.deepEqual([s.rule.ticker, s.rule.usdt, s.rule.every, s.rule.weekday, s.rule.hourUtc], ['NVDA', 10, 'week', 'mon', 14])
@@ -429,4 +429,41 @@ test('🔔 price alerts: a guest (no wallet) sets ±5% on NVIDIA; it fires once 
   assert.match(texts().at(-1), /5\. NVIDIA moves 3%/)
   await tap(button('✖ Remove 1'), G)
   assert.equal(alertStore.load().filter((x) => x.chat === G).length, 4)
+})
+
+test('audit: limit buy with too little USDT is refused before placing; sell-higher without the token says why; bad ticker; revoke re-checks open orders', async () => {
+  const { orderStore } = await import('./bot.mjs')
+  // not enough USDT for the dip buy
+  sc.set({ quotes: quotes(10), balances: [{ symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '3', value: '3' }] })
+  await tap('stk:NVDA')
+  await tap(button('🎯 Buy if it drops'))
+  await tap(kb().find((b) => b.text.startsWith('−5%')).callback_data)
+  await tap(button('$10'))
+  let n = sc.calls().length
+  await tap(button('✅ Place order'))
+  assert.match(texts().at(-1), /Not enough USDT/)
+  assert.ok(!sc.calls().slice(n).some((c) => c[0] === 'limit-order'), 'nothing placed')
+
+  // sell higher on a stock not held as bStocks: a plain refusal, not "Something went wrong"
+  sc.set({ quotes: quotes(10), balances: [] })
+  await tap('tp:NVDA')
+  await tap(kb().find((b) => b.text.startsWith('+10%')).callback_data)
+  await tap(button('✅ Place order'))
+  assert.match(texts().at(-1), /Order not placed\.<\/b> you don't hold NVDAB/)
+  assert.ok(!/Something went wrong/.test(texts().at(-1)))
+
+  await tap('tp:BAD1')
+  assert.match(texts().at(-1), /expired/)
+
+  // Safety card offered removal with no open orders; an order placed afterwards blocks it at the last tap
+  orderStore.save(orderStore.load().map((o) => ({ ...o, status: o.chat === OWNER && o.status === 'WORKING' ? 'CANCELED' : o.status })))
+  const appr = [{ tokenSymbol: 'USDT', tokenContract: '0x55d398326f99059fF775485246999027B3197955', spender: '0x1111111254eeb25477b68fb85ed929f73a960582', spenderName: 'PancakeSwap', type: 'approve' }]
+  sc.set({ approvals: appr, limitOrders: [] })
+  await tap('sf')
+  await tap(button('🧹 Remove 1 approval'))
+  orderStore.save([...orderStore.load(), { strategyId: 'late-1', chat: OWNER, side: 'buy', ticker: 'NVDA', usdt: 5, price: 200, status: 'WORKING' }])
+  n = sc.calls().length
+  await tap(button('🧹 Remove'))
+  assert.match(texts().at(-1), /open order now[\s\S]*Nothing was removed/)
+  assert.ok(!sc.calls().slice(n).some((c) => c[0] === 'approvals' && c[1] === 'revoke'))
 })

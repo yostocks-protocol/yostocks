@@ -32,19 +32,19 @@ const spentToday = (list, now) => {
 
 /**
  * One pass over all strategies. deps: { store, scan, execute, say, now, inWallet?, canTrade? }.
- * inWallet(chat, fn) runs fn against that chat's wallet session; canTrade(chat) is false once it disconnected.
+ * inWallet(chat, fn) runs fn against that chat's wallet session; canTrade(chat) is false once it disconnected:
+ * those plans pause silently (no run, no message) and resume when the wallet is back.
  * Returns what happened per strategy id, for logs/tests.
  */
 export async function runOnce({ store, scan, execute, say, now = Date.now(), inWallet = (chat, fn) => fn(), canTrade = () => true }) {
   const out = {}
   for (const s of store.load()) {
     const state = due(s, now)
-    if (!state) continue
+    if (!state || !canTrade(s.chat)) continue
     const slot = new Date(lastSlot(s.rule, now)).toISOString()
     let result
     try {
       result = state === 'missed' ? { status: 'SKIPPED', why: 'missed its slot by more than 2h' }
-        : !canTrade(s.chat) ? { status: 'SKIPPED', why: 'wallet not connected' }
         : await inWallet(s.chat, () => attempt(s, now, { store, scan, execute }))
     } catch (e) {
       result = { status: 'ERROR', why: /SESSION_EXPIRED|NOT_LOGGED_IN/.test(e.message) ? 'connect Binance again in the bot' : e.message }
