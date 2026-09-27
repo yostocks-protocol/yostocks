@@ -46,6 +46,8 @@ const jsonStore = (file) => ({
 export const store = jsonStore(DATA)
 /** Limit orders placed through the bot, so the watcher can tell each chat when theirs fills. */
 export const orderStore = jsonStore(join(dirname(DATA), 'orders.json'))
+/** Price alerts: { id, chat, ticker, ref, pct, at }, one-shot. */
+export const alertStore = jsonStore(join(dirname(DATA), 'alerts.json'))
 
 export function parse(text = '') {
   const [cmd, ticker, amount] = text.trim().split(/\s+/)
@@ -489,6 +491,37 @@ async function agentAction(chat, action, id, arg) {
   }
 }
 
+async function alertAction(chat, action, id, arg) {
+  const mineA = () => alertStore.load().filter((a) => a.chat === chat)
+  if (action === 'al' || action === 'alp') {
+    if (!isTicker(id)) return expired(chat)
+    const [p] = await prices([id])
+    if (!p) return say(chat, ui.notice(`No live price for ${id} right now.`))
+    if (action === 'al') return say(chat, ui.alertCard(id, p.price), { reply_markup: ui.alertButtons(id, p.price) })
+    if (!ui.ALERT_PCTS.includes(Number(arg))) return expired(chat)
+    if (mineA().length >= ui.MAX_ALERTS) return say(chat, ui.alertLimit, { reply_markup: ui.alertSetButtons })
+    const a = { id: newId(), chat, ticker: id, ref: p.price, pct: Number(arg), at: new Date().toISOString() }
+    alertStore.save([...alertStore.load(), a])
+    return say(chat, ui.alertSet(a), { reply_markup: ui.alertSetButtons })
+  }
+  if (action === 'all') return say(chat, ui.alertList(mineA()), { reply_markup: ui.alertListButtons(mineA()) })
+  if (action === 'alx') {
+    alertStore.save(alertStore.load().filter((a) => !(a.id === id && a.chat === chat)))
+    return say(chat, ui.alertList(mineA()), { reply_markup: ui.alertListButtons(mineA()) })
+  }
+}
+
+/** Background: one price read per ticker for all alerts; a fired alert messages once and is removed. */
+export async function watchAlerts() {
+  const list = alertStore.load()
+  if (!list.length) return
+  const now = new Map((await prices([...new Set(list.map((a) => a.ticker))]).catch(() => [])).map((p) => [p.ticker, p.price]))
+  const fired = list.filter((a) => now.has(a.ticker) && Math.abs(now.get(a.ticker) / a.ref - 1) * 100 >= a.pct)
+  if (!fired.length) return
+  alertStore.save(alertStore.load().filter((a) => !fired.some((f) => f.id === a.id))) // remove first: never message twice
+  for (const a of fired) await say(a.chat, ui.alertFired(a, now.get(a.ticker)), { reply_markup: ui.alertFiredButtons(a.ticker) }).catch(() => {})
+}
+
 const saveOrder = (o) => orderStore.save(orderStore.load().map((x) => (x.strategyId === o.strategyId ? o : x)))
 /** Re-read open orders from each owner's wallet; returns those that just reached a final state. */
 async function refresh(list) {
@@ -525,6 +558,10 @@ async function callback(q, chat) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {})
     if (!owner) return say(chat, ui.connectFirst, { reply_markup: ui.connectOffer })
     return agentAction(chat, action, id, arg)
+  }
+  if (['al', 'alp', 'all', 'alx'].includes(action)) { // price alerts: no wallet needed
+    await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {})
+    return alertAction(chat, action, id, arg)
   }
   if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'amt'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
@@ -634,6 +671,7 @@ async function main() {
       const done = await runOnce({ store, scan, execute, say: (chat, text) => say(chat, ui.autopilot(text)), inWallet: (chat, fn) => wallet.run(walletDir(chat), fn), canTrade: linked })
       if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
       await watchOrders()
+      await watchAlerts()
     } catch (e) {
       console.error('runner', e)
     } finally {
