@@ -47,7 +47,7 @@ test('tap NVDA → one-line best route, others summarised, Buy $5/$10/$25; nothi
   const c = texts().at(-1)
   assert.match(c, /<b>NVIDIA<\/b> · NVDA\n<b>\$\d+\.\d\d<\/b>/)
   assert.match(c, /✅ <b>Fair price<\/b> · via bStocks, 0\.02% above the stock price/)
-  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', '✏️ Other', 'ℹ️ Details', '🏠 Home', '🎯 Buy if it drops', '🔁 Auto-invest'])
+  assert.deepEqual(kb().map((b) => b.text), ['Buy $5', 'Buy $10', 'Buy $25', '✏️ Other', 'ℹ️ Details', '🏠 Home', '🎯 Buy if it drops', '🔁 Auto-invest', '🔔 Alert me'])
   assert.equal(swaps().length, n)
 })
 
@@ -397,4 +397,36 @@ test('🔁 Auto-invest: $10 every Monday from the stock card, saved for this cha
   await tap(button('⏹ Stop 1'))
   assert.match(texts().at(-1), /Stopped/)
   assert.ok(!store.load().some((x) => x.id === s.id))
+})
+
+test('🔔 price alerts: a guest (no wallet) sets ±5% on NVIDIA; it fires once when the price has moved, then is gone; max 5', async () => {
+  const { alertStore, watchAlerts } = await import('./bot.mjs')
+  const G = 93
+  sc.set({ quotes: quotes(10) })
+  await tap('stk:NVDA', G)
+  await tap(button('🔔 Alert me'), G)
+  assert.match(texts().at(-1), /Tell me when NVIDIA moves/)
+  await tap(button('±5%'), G)
+  assert.match(texts().at(-1), /Alert on\.<\/b> I'll message you if NVIDIA moves 5% from \$[\d.]+: up to \$[\d.]+ or down to \$[\d.]+/)
+  const a = alertStore.load().find((x) => x.chat === G)
+  assert.equal(a.ticker, 'NVDA')
+
+  await watchAlerts() // price unchanged: nothing
+  assert.ok(alertStore.load().some((x) => x.id === a.id))
+  alertStore.save(alertStore.load().map((x) => (x.id === a.id ? { ...x, ref: x.ref / 1.08 } : x))) // as if set 8% lower
+  const n = texts().length
+  await watchAlerts()
+  assert.match(texts().at(-1), /NVIDIA is up 8\.0%/)
+  assert.ok(kb().some((b) => b.text === 'Open NVIDIA'))
+  assert.ok(!alertStore.load().some((x) => x.id === a.id), 'one-shot')
+  await watchAlerts()
+  assert.equal(texts().length, n + 1, 'fired once')
+
+  for (let i = 0; i < 5; i++) await tap('alp:NVDA:3', G)
+  await tap('alp:NVDA:3', G)
+  assert.match(texts().at(-1), /already have 5 alerts/)
+  await tap('all', G)
+  assert.match(texts().at(-1), /5\. NVIDIA moves 3%/)
+  await tap(button('✖ Remove 1'), G)
+  assert.equal(alertStore.load().filter((x) => x.chat === G).length, 4)
 })

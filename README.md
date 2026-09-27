@@ -29,7 +29,8 @@ Strategies and paid data stay on the owner's wallet.
 (+5/+10/+20%) place Agentic Wallet limit orders on the bStocks token, with the trigger converted from the per-share
 price and checked against the real stock price first. The bot watches them and messages you when one fills, expires or
 fails. **🛡 Safety** shows the wallet's daily limit and what's left, how risky trades are handled, and lets you remove
-token approvals, but never while an open order still needs them.
+token approvals, but never while an open order still needs them. **🔔 Alert me** (±3/5/10%) works for everyone, no wallet needed:
+the bot checks prices every minute and messages you once when the stock moves that much.
 
 ## What it does
 

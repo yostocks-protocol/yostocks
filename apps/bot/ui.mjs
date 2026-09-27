@@ -37,7 +37,8 @@ export const home = (prices = []) => [
 export const homeButtons = (canTrade) => ({
   inline_keyboard: [
     ...rows(TICKERS.map((t) => ({ text: NAMES[t], callback_data: `stk:${t}` })), 2),
-    canTrade ? [mine$, { text: '🔌 Disconnect', callback_data: 'dw' }] : [connect$],
+    canTrade ? [mine$, alerts$, { text: '🔌 Disconnect', callback_data: 'dw' }] : [connect$],
+    ...(canTrade ? [] : [[alerts$]]),
   ],
 })
 
@@ -99,6 +100,7 @@ export const stockButtons = (id, ticker, canBuy, guest = false) => ({
     ...(guest ? [[{ ...connect$, callback_data: `cw:${ticker}` }]] : []),
     [...(canBuy ? [{ text: '✏️ Other', callback_data: `amt:${id}` }] : []), { text: 'ℹ️ Details', callback_data: `why:${ticker}` }, home$],
     ...(canBuy ? [[{ text: '🎯 Buy if it drops', callback_data: `dip:${id}` }, { text: '🔁 Auto-invest', callback_data: `ai:${id}` }]] : []),
+    [{ text: '🔔 Alert me', callback_data: `al:${ticker}` }],
   ],
 })
 export const askAmount = (ticker) => `✏️ How much USDT of <b>${esc(nameOf(ticker))}</b>? Type an amount from $1 to $1,000.`
@@ -184,6 +186,23 @@ export const safetyButtons = (revokeId, n) => ({ inline_keyboard: [...(revokeId 
 export const confirmRevoke = (list) => `🧹 Remove these token approvals?\n${list.map((a) => `• ${esc(a.tokenSymbol)} → ${esc(a.spenderName ?? a.spender)}`).join('\n')}\n<i>Each is a small on-chain transaction. Your next trade re-approves what it needs.</i>`
 export const revokeButtons = (id) => ({ inline_keyboard: [[{ text: '🧹 Remove', callback_data: `rvok:${id}` }, { text: 'Cancel', callback_data: `no:${id}` }]] })
 export const revoked = (out) => [`🧹 <b>Submitted.</b> ${out.filter((x) => x.ok).length} of ${out.length} removals sent; they count once confirmed on-chain.`, ...out.filter((x) => !x.ok).map((x) => `⚠️ ${esc(x.tokenSymbol)}: ${esc(x.error ?? 'failed')}`)].join('\n')
+
+// ---- price alerts: no wallet needed, one message when a stock moves ----
+export const ALERT_PCTS = [3, 5, 10]
+export const MAX_ALERTS = 5
+const alerts$ = { text: '🔔 Alerts', callback_data: 'all' }
+export const alertCard = (ticker, ref) => `🔔 <b>Tell me when ${esc(nameOf(ticker))} moves</b>\nNow ${usd(ref)} a share. Up or down, I'll message you once.`
+export const alertButtons = (ticker, ref) => ({ inline_keyboard: [ALERT_PCTS.map((p) => ({ text: `±${p}%`, callback_data: `alp:${ticker}:${p}` })), [home$]] })
+export const alertSet = (a) => `🔔 <b>Alert on.</b> I'll message you if ${esc(nameOf(a.ticker))} moves ${a.pct}% from ${usd(a.ref)}: up to ${usd(a.ref * (1 + a.pct / 100))} or down to ${usd(a.ref * (1 - a.pct / 100))}.`
+export const alertSetButtons = { inline_keyboard: [[alerts$, home$]] }
+export const alertLimit = `🔔 You already have ${MAX_ALERTS} alerts. Remove one in 🔔 Alerts first.`
+export const alertList = (list) => list.length
+  ? ['🔔 <b>Your alerts</b>', '', ...list.map((a, i) => `${i + 1}. ${esc(nameOf(a.ticker))} moves ${a.pct}% from ${usd(a.ref)}`)].join('\n')
+  : '🔔 <b>No alerts.</b>\nOpen a stock and tap 🔔 Alert.'
+export const alertListButtons = (list) => ({ inline_keyboard: [...list.map((a, i) => [{ text: `✖ Remove ${i + 1}`, callback_data: `alx:${a.id}` }]), [home$]] })
+/** An alert fired: price now vs when it was set. */
+export const alertFired = (a, price) => `🔔 <b>${esc(nameOf(a.ticker))} is ${price >= a.ref ? 'up' : 'down'} ${Math.abs((price / a.ref - 1) * 100).toFixed(1)}%</b>\n${usd(price)} a share (was ${usd(a.ref)} when you set the alert).`
+export const alertFiredButtons = (ticker) => ({ inline_keyboard: [[{ text: `Open ${nameOf(ticker)}`, callback_data: `stk:${ticker}` }, home$]] })
 
 // ---- auto-invest: a fixed buy on a schedule, through the same guard, per-wallet daily cap ----
 export const AUTO_HOUR_UTC = 14 // 21:00 WIB, 10:00 New York: the US market is open
