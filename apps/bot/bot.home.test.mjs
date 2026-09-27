@@ -291,61 +291,6 @@ test('no wallet session to quote with: a guest still sees the stock card and Con
   sc.set({})
 })
 
-test('🎯 Buy if it drops: pick −5%, $10, place → a limit buy on the bStocks token at the per-share price × multiplier; the watcher reports the fill once', async () => {
-  const { orderStore, watchOrders } = await import('./bot.mjs')
-  sc.set({ quotes: quotes(10) })
-  await tap('stk:NVDA')
-  await tap(button('🎯 Buy if it drops'))
-  assert.match(texts().at(-1), /Buy NVIDIA if it drops/)
-  const five = kb().find((b) => b.text.startsWith('−5%'))
-  const price = +(ref * 0.95).toFixed(2)
-  assert.equal(five.text, `−5% · $${price.toFixed(2)}`)
-  await tap(five.callback_data)
-  await tap(button('$10'))
-  assert.match(texts().at(-1), new RegExp(`Buy <b>\\$10</b> of <b>NVIDIA</b> if a share drops to <b>\\$${price.toFixed(2).replace('.', '\\.')}</b> \\(−5%\\)`))
-  const n = sc.calls().length
-  await tap(button('✅ Place order'))
-  const call = sc.calls().slice(n).find((c) => c[0] === 'limit-order')
-  assert.deepEqual(call.slice(0, 2), ['limit-order', 'buy'])
-  assert.equal(arg(call, '--toToken'), addr('NVDAB'), 'bStocks, not Ondo')
-  assert.equal(arg(call, '--fromTokenQty'), '10')
-  assert.equal(Number(arg(call, '--triggerPrice')), +(price * mult('NVDAB')).toFixed(4), 'token price = share price × multiplier')
-  assert.match(texts().at(-1), /Order placed[\s\S]*Nothing is bought yet/)
-  const id = `s-buy-${arg(call, '--triggerPrice')}`
-  assert.equal(orderStore.load().at(-1).strategyId, id)
-
-  await tap('ord')
-  assert.match(texts().at(-1), /Buy \$10 of NVIDIA at \$[\d.]+ · <i>waiting<\/i>/)
-
-  sc.set({ quotes: quotes(10), limitOrders: [{ strategyId: id, status: 'FINISHED', txHash: '0xfill' }] })
-  await watchOrders()
-  assert.match(texts().at(-1), /Your order filled![\s\S]*bscscan\.com\/tx\/0xfill/)
-  const before = texts().length
-  await watchOrders()
-  assert.equal(texts().length, before, 'told once')
-})
-
-test('🎯 Sell higher from My stocks: +10% sells every held bStocks token; Cancel from Orders', async () => {
-  const HELD = '0.0224'
-  sc.set({ balances: [{ symbol: 'NVDAB', address: addr('NVDAB'), balance: HELD, value: '5.02' }], limitOrders: [] })
-  await tap('pf')
-  await tap(button('🎯 Sell higher'))
-  assert.match(texts().at(-1), /Sell NVIDIA higher/)
-  await tap(kb().find((b) => b.text.startsWith('+10%')).callback_data)
-  const n = sc.calls().length
-  await tap(button('✅ Place order'))
-  const call = sc.calls().slice(n).find((c) => c[0] === 'limit-order')
-  assert.deepEqual(call.slice(0, 2), ['limit-order', 'sell'])
-  assert.equal(arg(call, '--fromTokenQty'), HELD)
-  assert.equal(arg(call, '--toToken'), '0x55d398326f99059fF775485246999027B3197955')
-  const id = `s-sell-${arg(call, '--triggerPrice')}`
-  sc.set({ balances: [], limitOrders: [{ strategyId: id, status: 'WORKING' }] })
-  await tap('ord')
-  await tap(button('✖ Cancel 1'))
-  assert.ok(sc.calls().some((c) => c[0] === 'limit-order' && c[1] === 'cancel' && arg(c, '--strategyId') === id))
-  assert.match(texts().at(-1), /Order canceled/)
-})
-
 test('limit prices are guarded: a buy trigger at or above the real price is refused (it would just buy now)', async () => {
   const { checkTrigger } = await import('../agent/orders.mjs')
   assert.match(checkTrigger('buy', 230, 224), /buy now instead/)
@@ -354,28 +299,6 @@ test('limit prices are guarded: a buy trigger at or above the real price is refu
   assert.match(checkTrigger('sell', 500, 224), /double/)
   assert.equal(checkTrigger('buy', 213, 224), null)
   assert.equal(checkTrigger('sell', 246, 224), null)
-})
-
-test('🛡 Safety: daily limit and what is left, risky-trade handling; approvals removable only with no open orders', async () => {
-  const appr = [{ tokenSymbol: 'USDT', tokenContract: '0x55d398326f99059fF775485246999027B3197955', spender: '0x1111111254eeb25477b68fb85ed929f73a960582', spenderName: 'PancakeSwap', type: 'approve' }]
-  sc.set({ approvals: appr, limitOrders: [] })
-  await tap('sf')
-  const c = texts().at(-1)
-  assert.match(c, /Daily limit\s+\$500\.00 \(\$490\.00 left today\)/)
-  assert.match(c, /Risky trades\s+Blocked automatically/)
-  assert.match(c, /Open orders\s+0/)
-  await tap(button('🧹 Remove 1 approval'))
-  assert.match(texts().at(-1), /USDT → PancakeSwap/)
-  await tap(button('🧹 Remove'))
-  assert.ok(sc.calls().some((c) => c[0] === 'approvals' && c[1] === 'revoke' && arg(c, '--type') === 'approve'))
-  assert.match(texts().at(-1), /Submitted\.<\/b> 1 of 1/)
-
-  const { orderStore } = await import('./bot.mjs')
-  orderStore.save([...orderStore.load(), { strategyId: 'open-1', chat: OWNER, side: 'buy', ticker: 'NVDA', usdt: 5, price: 200, status: 'WORKING' }])
-  sc.set({ approvals: appr, limitOrders: [{ strategyId: 'open-1', status: 'WORKING' }] })
-  await tap('sf')
-  assert.match(texts().at(-1), /Open orders\s+1[\s\S]*they need them to fill/)
-  assert.ok(!kb().some((b) => b.text.startsWith('🧹')), 'an open order keeps its approvals')
 })
 
 test('🔁 Auto-invest: $10 every Monday from the stock card, saved for this chat, listed, stopped', async () => {
@@ -431,39 +354,108 @@ test('🔔 price alerts: a guest (no wallet) sets ±5% on NVIDIA; it fires once 
   assert.equal(alertStore.load().filter((x) => x.chat === G).length, 4)
 })
 
-test('audit: limit buy with too little USDT is refused before placing; sell-higher without the token says why; bad ticker; revoke re-checks open orders', async () => {
-  const { orderStore } = await import('./bot.mjs')
-  // not enough USDT for the dip buy
+test('🎯 Buy if it drops is kept by the agent (baw limit orders refuse stock tokens): set −5% $10, nothing on-chain; fills through the guard once the price is there, message once', async () => {
+  const { orderStore, watchOrders } = await import('./bot.mjs')
+  sc.set({ quotes: quotes(10), txHash: '0xabc123' })
+  await tap('stk:NVDA')
+  await tap(button('🎯 Buy if it drops'))
+  assert.match(texts().at(-1), /I watch it every minute/)
+  const five = kb().find((b) => b.text.startsWith('−5%'))
+  const price = +(ref * 0.95).toFixed(2)
+  assert.equal(five.text, `−5% · $${price.toFixed(2)}`)
+  await tap(five.callback_data)
+  await tap(button('$10'))
+  let n = sc.calls().length
+  await tap(button('✅ Place order'))
+  assert.ok(!sc.calls().slice(n).some((c) => c[0] === 'limit-order' || c[1] === 'swap'), 'nothing sent to the chain yet')
+  assert.match(texts().at(-1), /Order set[\s\S]*Nothing is bought yet[\s\S]*every minute/)
+  const o = orderStore.load().at(-1)
+  assert.deepEqual([o.side, o.ticker, o.usdt, o.price, o.status], ['buy', 'NVDA', 10, price, 'WORKING'])
+  await tap('ord')
+  assert.match(texts().at(-1), /Buy \$10 of NVIDIA at \$[\d.]+ · <i>waiting<\/i>/)
+
+  n = swaps().length
+  await watchOrders() // real price still above the target
+  assert.equal(swaps().length, n)
+  orderStore.save(orderStore.load().map((x) => (x.strategyId === o.strategyId ? { ...x, price: +(ref * 1.01).toFixed(2) } : x))) // as if the price dropped to it
+  await watchOrders()
+  assert.equal(swaps().length, n + 1, 'bought once, through the same swap path as Buy')
+  assert.equal(arg(swaps().at(-1), '--fromTokenQty'), '10')
+  assert.match(texts().at(-1), /Your order filled![\s\S]*bscscan\.com\/tx\/0xabc123/)
+  const t = texts().length
+  await watchOrders()
+  assert.equal(texts().length, t, 'told once')
+  assert.equal(orderStore.load().find((x) => x.strategyId === o.strategyId).status, 'FINISHED')
+})
+
+test('🎯 Sell higher: set +10%, cancel locally; a second one sells all when the price gets there', async () => {
+  const { orderStore, watchOrders } = await import('./bot.mjs')
+  const HELD = '0.0224'
+  const bal = [{ symbol: 'NVDAB', address: addr('NVDAB'), balance: HELD, value: '5.02' }, { symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '100', value: '100' }]
+  sc.set({ balances: bal, sellQuotes: { [addr('NVDAB')]: quote(Number(HELD) * mult('NVDAB') * ref) } })
+  await tap('pf')
+  await tap(button('🎯 Sell higher'))
+  await tap(kb().find((b) => b.text.startsWith('+10%')).callback_data)
+  await tap(button('✅ Place order'))
+  assert.match(texts().at(-1), /Order set[\s\S]*Nothing is sold yet/)
+  await tap('ord')
+  const n = sc.calls().length
+  await tap(button('✖ Cancel 1'))
+  assert.match(texts().at(-1), /Order canceled/)
+  assert.equal(sc.calls().length, n, 'nothing on-chain to cancel')
+
+  await tap('tp:NVDA')
+  await tap(kb().find((b) => b.text.startsWith('+5%')).callback_data)
+  await tap(button('✅ Place order'))
+  const o = orderStore.load().at(-1)
+  orderStore.save(orderStore.load().map((x) => (x.strategyId === o.strategyId ? { ...x, price: +(ref * 0.99).toFixed(2) } : x))) // as if the price rose to it
+  const s0 = swaps().length
+  await watchOrders()
+  assert.equal(swaps().length, s0 + 1)
+  assert.equal(arg(swaps().at(-1), '--fromToken'), addr('NVDAB'))
+  assert.match(texts().at(-1), /Your order filled!<\/b> Sell NVIDIA/)
+  assert.ok(!/tx\/null/.test(texts().at(-1)), 'no tx hash → no link')
+})
+
+test('orders: refused before setting when USDT is short or the stock is not held; bad ticker; 30 days without the price → expired', async () => {
+  const { orderStore, watchOrders } = await import('./bot.mjs')
   sc.set({ quotes: quotes(10), balances: [{ symbol: 'USDT', address: '0x55d398326f99059fF775485246999027B3197955', balance: '3', value: '3' }] })
   await tap('stk:NVDA')
   await tap(button('🎯 Buy if it drops'))
   await tap(kb().find((b) => b.text.startsWith('−5%')).callback_data)
   await tap(button('$10'))
-  let n = sc.calls().length
+  const count = orderStore.load().length
   await tap(button('✅ Place order'))
   assert.match(texts().at(-1), /Not enough USDT/)
-  assert.ok(!sc.calls().slice(n).some((c) => c[0] === 'limit-order'), 'nothing placed')
+  assert.equal(orderStore.load().length, count, 'nothing set')
 
-  // sell higher on a stock not held as bStocks: a plain refusal, not "Something went wrong"
   sc.set({ quotes: quotes(10), balances: [] })
   await tap('tp:NVDA')
   await tap(kb().find((b) => b.text.startsWith('+10%')).callback_data)
   await tap(button('✅ Place order'))
-  assert.match(texts().at(-1), /Order not placed\.<\/b> you don't hold NVDAB/)
-  assert.ok(!/Something went wrong/.test(texts().at(-1)))
+  assert.match(texts().at(-1), /Order not placed\.<\/b> you don't hold any NVDA yet/)
 
   await tap('tp:BAD1')
   assert.match(texts().at(-1), /expired/)
 
-  // Safety card offered removal with no open orders; an order placed afterwards blocks it at the last tap
-  orderStore.save(orderStore.load().map((o) => ({ ...o, status: o.chat === OWNER && o.status === 'WORKING' ? 'CANCELED' : o.status })))
-  const appr = [{ tokenSymbol: 'USDT', tokenContract: '0x55d398326f99059fF775485246999027B3197955', spender: '0x1111111254eeb25477b68fb85ed929f73a960582', spenderName: 'PancakeSwap', type: 'approve' }]
-  sc.set({ approvals: appr, limitOrders: [] })
+  orderStore.save([...orderStore.load(), { strategyId: 'old-1', chat: OWNER, side: 'buy', ticker: 'NVDA', usdt: 5, price: 1, status: 'WORKING', at: '2026-01-01T00:00:00Z' }])
+  await watchOrders()
+  assert.match(texts().at(-1), /Order expired/)
+  assert.equal(orderStore.load().find((x) => x.strategyId === 'old-1').status, 'EXPIRED')
+})
+
+test('🛡 Safety: daily limit and what is left, risky-trade handling, approvals removable', async () => {
+  const appr = [{ tokenSymbol: 'USDT', tokenContract: '0x55d398326f99059fF775485246999027B3197955', spender: '0x1111111254eeb25477b68fb85ed929f73a960582', spenderName: 'PancakeSwap', type: 'approve', binanceChainId: '56' },
+    { tokenSymbol: 'ETH', tokenContract: '0x2', spender: '0x3', type: 'approve', binanceChainId: '1' }]
+  sc.set({ approvals: appr })
   await tap('sf')
+  const c = texts().at(-1)
+  assert.match(c, /Daily limit\s+\$500\.00 \(\$490\.00 left today\)/)
+  assert.match(c, /Risky trades\s+Blocked automatically/)
+  assert.match(c, /Approvals\s+1\n/, 'BSC only')
   await tap(button('🧹 Remove 1 approval'))
-  orderStore.save([...orderStore.load(), { strategyId: 'late-1', chat: OWNER, side: 'buy', ticker: 'NVDA', usdt: 5, price: 200, status: 'WORKING' }])
-  n = sc.calls().length
+  assert.match(texts().at(-1), /USDT → PancakeSwap/)
   await tap(button('🧹 Remove'))
-  assert.match(texts().at(-1), /open order now[\s\S]*Nothing was removed/)
-  assert.ok(!sc.calls().slice(n).some((c) => c[0] === 'approvals' && c[1] === 'revoke'))
+  assert.ok(sc.calls().some((c) => c[0] === 'approvals' && c[1] === 'revoke' && arg(c, '--type') === 'approve'))
+  assert.match(texts().at(-1), /Submitted\.<\/b> 1 of 1/)
 })

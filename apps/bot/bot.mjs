@@ -463,34 +463,31 @@ async function agentAction(chat, action, id, arg) {
       const f = await funds()
       if (f.usdt != null && f.usdt < p.usdt) return say(chat, ui.notEnough(p.usdt, f.usdt, f.address), { reply_markup: ui.doneButtons })
     }
-    const r = await (action === 'lb' ? orders.placeBuy(p.ticker, p.usdt, p.price) : orders.placeSell(p.ticker, p.price)).catch((e) => {
-      const why = /^price refused: (.*)|^(you don't hold .*|no .* token supports limit orders)$/.exec(e.message)
+    const r = await (action === 'lb' ? orders.planBuy(p.ticker, p.usdt, p.price) : orders.planSell(p.ticker, p.price)).catch((e) => {
+      const why = /^price refused: (.*)|^(you don't hold .*)$/.exec(e.message)
       if (!why) throw e
       return { refused: why[1] ?? why[2] }
     })
     if (r.refused) return say(chat, ui.limitRefused(r.refused), { reply_markup: ui.doneButtons })
-    const o = { strategyId: String(r.strategyId), chat, side: action === 'lb' ? 'buy' : 'sell', ticker: p.ticker, usdt: p.usdt, price: p.price, trigger: r.trigger, status: 'WORKING', at: new Date().toISOString() }
+    const o = { strategyId: `a${newId()}`, chat, ...r, status: 'WORKING', at: new Date().toISOString() }
     orderStore.save([...orderStore.load(), o])
     return say(chat, ui.orderPlaced(o), { reply_markup: ui.orderButtons })
   }
   if (action === 'ord') {
-    const list = orderStore.load().filter((o) => o.chat === chat)
-    await refresh(list)
-    const open = list.filter((o) => !orders.TERMINAL.includes(o.status))
+    const open = orderStore.load().filter((o) => o.chat === chat && !orders.TERMINAL.includes(o.status))
     return say(chat, ui.ordersList(open), { reply_markup: ui.ordersButtons(open) })
   }
   if (action === 'cx') {
     const o = orderStore.load().find((x) => x.strategyId === id && x.chat === chat)
-    if (!o) return expired(chat)
-    await orders.cancel(id)
-    saveOrder({ ...o, status: 'CANCELED', notified: true })
+    if (!o || orders.TERMINAL.includes(o.status)) return expired(chat)
+    saveOrder({ ...o, status: 'CANCELED', notified: true }) // agent-side: nothing on-chain to cancel
     return say(chat, ui.orderDone({ ...o, status: 'CANCELED' }), { reply_markup: ui.orderButtons })
   }
   if (action === 'sf') {
     const s = await orders.safety()
     const open = orderStore.load().filter((o) => o.chat === chat && !orders.TERMINAL.includes(o.status)).length
     let rv = null
-    if (s.approvals?.length && !open) { rv = newId(); pending.set(rv, { chat, approvals: s.approvals, at: Date.now() }) } // never strand an open order
+    if (s.approvals?.length) { rv = newId(); pending.set(rv, { chat, approvals: s.approvals, at: Date.now() }) } // swaps re-approve what they need
     return say(chat, ui.safetyCard(s, open), { reply_markup: ui.safetyButtons(rv, s.approvals?.length ?? 0) })
   }
   if (action === 'rv') {
@@ -502,9 +499,6 @@ async function agentAction(chat, action, id, arg) {
     const p = mine(id, chat)
     pending.delete(id)
     if (!p?.approvals) return expired(chat)
-    if (orderStore.load().some((o) => o.chat === chat && !orders.TERMINAL.includes(o.status))) { // an order was placed since the Safety card
-      return say(chat, ui.notice('You have an open order now, and it needs these approvals to fill. Nothing was removed.'), { reply_markup: ui.orderButtons })
-    }
     return say(chat, ui.revoked(await orders.revokeAll(p.approvals)), { reply_markup: ui.doneButtons })
   }
 }
@@ -551,24 +545,31 @@ export async function watchAlerts() {
 }
 
 const saveOrder = (o) => orderStore.save(orderStore.load().map((x) => (x.strategyId === o.strategyId ? o : x)))
-/** Re-read open orders from each owner's wallet; returns those that just reached a final state. */
-async function refresh(list) {
-  const done = []
-  for (const o of list.filter((x) => !orders.TERMINAL.includes(x.status))) {
-    const live = await wallet.run(walletDir(o.chat), () => orders.order(o.strategyId)).catch(() => null)
-    if (!live || live.status === o.status) continue
-    Object.assign(o, { status: live.status, txHash: live.txHash ?? o.txHash })
-    saveOrder(o)
-    if (orders.TERMINAL.includes(o.status)) done.push(o)
-  }
-  return done
-}
-/** Background watcher: the agent keeps an eye on your orders and tells you when one finishes. */
-export async function watchOrders() {
-  for (const o of await refresh(orderStore.load())) {
-    if (o.notified) continue
-    await say(o.chat, ui.orderDone(o), { reply_markup: ui.orderButtons }).catch(() => {})
-    saveOrder({ ...o, notified: true })
+/**
+ * Background watcher (every minute): the agent's own conditional orders. One public price read per ticker;
+ * an order whose target is reached trades through the guard from its owner's wallet. A wallet that is
+ * disconnected pauses its orders; 30 days without the price getting there → expired.
+ */
+export async function watchOrders(now = Date.now()) {
+  const open = orderStore.load().filter((o) => !orders.TERMINAL.includes(o.status))
+  if (!open.length) return
+  const px = new Map((await prices([...new Set(open.map((o) => o.ticker))]).catch(() => [])).map((p) => [p.ticker, p.price]))
+  for (const o of open) {
+    let done = null
+    if (now - Date.parse(o.at) > orders.MAX_AGE_MS) done = { status: 'EXPIRED' }
+    else if (!linked(o.chat) || !px.has(o.ticker) || !orders.reached(o, px.get(o.ticker))) continue
+    else {
+      if (o.side === 'buy') {
+        const f = await wallet.run(walletDir(o.chat), funds).catch(() => null)
+        if (f?.usdt != null && f.usdt < o.usdt) done = { status: 'FAILED', why: `not enough USDT (you have $${f.usdt.toFixed(2)})` }
+      }
+      done ??= await wallet.run(walletDir(o.chat), () => orders.fill(o)).catch((e) => ({ status: 'FAILED', why: e.message }))
+      if (done.status === 'WAIT') continue // the guard said no this minute; try again next minute
+    }
+    const hash = done.tx?.split('/').pop()
+    const upd = { ...o, ...done, txHash: /^0x[0-9a-f]+$/i.test(hash ?? '') ? hash : undefined, notified: true, closedAt: new Date(now).toISOString() } // never link /tx/null
+    saveOrder(upd)
+    await say(o.chat, ui.orderDone(upd), { reply_markup: ui.orderButtons }).catch(() => {})
   }
 }
 
