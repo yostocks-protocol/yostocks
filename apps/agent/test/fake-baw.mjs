@@ -11,6 +11,8 @@ if (f.log) appendFileSync(f.log, JSON.stringify(process.env.BINANCE_BAW_DIR?.inc
 const USDT = '0x55d398326f99059ff775485246999027b3197955'
 const NO_LIQ = { success: false, error: { code: 100, name: 'SERVICE_ERROR', message: 'No liquidity available, please try again later.' } }
 
+// Like the real CLI 1.10.0: `approvals list` has no --binanceChainId (the docs say it does); commander exits 1, no JSON.
+if (args[0] === 'approvals' && args[1] === 'list' && args.includes('--binanceChainId')) { process.stderr.write("error: unknown option '--binanceChainId'\n"); process.exit(1) }
 let out
 if (f.auth) out = { success: false, error: { code: 10003000, name: f.auth, message: 'Not logged in' } }
 else if (args[0] === 'x402-payment' && args[1] === 'preview' && /xrpl|solana/.test(Buffer.from(arg('--paymentRequirements'), 'base64').toString() + arg('--paymentRequirements'))) out = { success: false, error: { code: 351741, name: 'SERVICE_ERROR', message: 'unsupported x402 protocol version (only v2 supported)' } } // like the real baw

@@ -62,9 +62,10 @@ export const cancel = async (strategyId) => ok(await baw('limit-order', 'cancel'
 
 /** The wallet's brakes: daily limit and what's left, risky-trade handling, session end, token approvals. */
 export async function safety() {
-  const [s, a] = await Promise.all([baw('wallet', 'settings'), baw('approvals', 'list', '--binanceChainId', '56')])
+  // `approvals list` takes no chain filter in CLI 1.10.0 (the reference says it does): filter BSC here.
+  const [s, a] = await Promise.all([baw('wallet', 'settings'), baw('approvals', 'list').catch(() => ({ success: false }))])
   const settings = ok(s, 'wallet settings')
-  return { settings, approvals: a.success ? a.data.list ?? [] : null }
+  return { settings, approvals: a.success ? (a.data.list ?? []).filter((x) => String(x.binanceChainId ?? '56') === '56') : null }
 }
 
 /** Revoke every listed approval; returns what was broadcast (not yet confirmed) and what failed. */
