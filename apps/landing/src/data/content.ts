@@ -37,6 +37,7 @@ export interface Proof { title: string; detail: string; tx: `0x${string}` }
 export const proofs: Proof[] = [
   { title: 'First buy through the bot: 5 USDT → 0.0224 NVDAB', detail: 'Guard picked bStocks (−0.12%) over Ondo (+0.32%); xStocks had no liquidity. Slippage 0.01%.', tx: '0xfe3a3f460a2f278ec91f8dfc550043bf5ed8d9726952bcceb572ace52ef404b9' },
   { title: 'x402 payment for the macro calendar', detail: '0.1 USD1, EIP-3009, from the Agentic Wallet to a Binance Bazaar merchant.', tx: '0xe21fbbfe6d033971d8f12542e858f39a1969586b9161c3a8397dffeb4f76387a' },
+  { title: 'Agent-kept order filled: sell higher, then buy if it drops', detail: 'The watcher saw each target reached and traded through the guard from the Agentic Wallet: 0.0221 NVDAB → 4.973 USDT, then 5 USDT → 0.02224 NVDAB.', tx: '0xaeeeaaa2c4ed6e34da16ebf61bba9adc28a7eeea51fbb17aa78c56c767ec3871' },
   { title: 'x402 payment to CoinMarketCap MCP', detail: '0.01 U for a market snapshot, settled on-chain.', tx: '0xff8868500d6dcd78e8b1c3be02702d9f475f5006197212355a8b4e6b54cd3123' },
 ]
 export const shortTx = (tx: string) => `${tx.slice(0, 8)}…${tx.slice(-4)}`
