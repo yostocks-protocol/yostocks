@@ -57,6 +57,8 @@ export const notEnough = (need, have, address) => `💸 <b>Not enough USDT.</b> 
 export const connectFailed = '⌛ Not connected: the code expired. Tap Connect to try again.'
 export const disconnected = '🔌 <b>Disconnected.</b>\nAuto-invest pauses until you connect again. Orders that were waiting stay in your Binance wallet: cancel them in the Binance app if you don\'t want them.'
 export const sessionEnded = '🔐 <b>Please connect Binance again.</b>\nFor your safety the connection lasts up to 7 days.'
+export const renewSoon = (end) => `🔐 <b>Your Binance connection ends ${new Date(end).toISOString().slice(0, 16).replace('T', ' ')} UTC.</b>\nBinance signs agents out after 7 days. Tap 🔄 Renew and approve in the app to keep trading, orders and auto-invest running.`
+export const renewButtons = { inline_keyboard: [[{ text: '🔄 Renew', callback_data: 'rw' }]] }
 export const connectFirst = '🔒 Connect Binance first. It takes a few seconds.'
 export const connectOffer = { inline_keyboard: [[connect$], [home$]] }
 export const askTicker = '🔎 Type a ticker, for example <code>AMD</code>.'

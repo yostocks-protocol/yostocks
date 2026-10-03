@@ -459,3 +459,28 @@ test('🛡 Safety: daily limit and what is left, risky-trade handling, approvals
   assert.ok(sc.calls().some((c) => c[0] === 'approvals' && c[1] === 'revoke' && arg(c, '--type') === 'approve'))
   assert.match(texts().at(-1), /Submitted\.<\/b> 1 of 1/)
 })
+
+test('session keepalive: a wallet read every 6 h; one reminder a day before the 7-day sign-in ends; 🔄 Renew signs out and back in', async () => {
+  const { keepAlive } = await import('./bot.mjs')
+  const t0 = Date.parse('2030-01-01T00:00:00Z')
+  const end = new Date(t0 + 12 * 36e5).toISOString()
+  sc.set({ settings: { success: true, data: { dailyLimit: 500, quotaLeft: 500, signInMaxTime: end } } })
+  const reads = () => sc.calls().filter((c) => c[0] === 'wallet' && c[1] === 'settings' && c.at(-1) !== '@557').length
+  let n = reads()
+  await keepAlive(t0)
+  assert.ok(reads() > n, 'read the wallet')
+  assert.match(texts().at(-1), /Your Binance connection ends 2030-01-01 12:00 UTC/)
+  assert.ok(kb().some((b) => b.text === '🔄 Renew'))
+  const msgs = texts().length
+  n = reads()
+  await keepAlive(t0 + 36e5)
+  assert.equal(reads(), n, 'not again within 6 h')
+  await keepAlive(t0 + 7 * 36e5)
+  assert.equal(texts().length, msgs, 'reminded once per sign-in')
+
+  sc.set({ quotes: quotes(10) })
+  const c0 = sc.calls().length
+  await tap('rw')
+  const after = sc.calls().slice(c0).filter((c) => c[0] === 'auth').map((c) => c[1])
+  assert.deepEqual(after.slice(0, 2), ['signout', 'signin'], 'renew = sign out, then the QR sign-in')
+})

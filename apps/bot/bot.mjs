@@ -1,5 +1,5 @@
 // yostocks Telegram bot: /quote, /buy and strategies on top of the guarded agent. Long polling.
-import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs'
+import { realpathSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { scan, market, execute, scanSell, executeSell, baw, wallet, USDT, assertSignedIn, prices } from '../agent/yo.mjs'
 import * as portfolio from '../agent/portfolio.mjs'
@@ -228,6 +228,34 @@ async function connectWallet(chat, ticker) {
   } finally {
     connecting.delete(chat)
   }
+}
+
+// Binance signs an agent out after 48 h without wallet activity (the window slides with each call) and
+// after 7 days in any case (signInMaxTime). So: a cheap read every 6 h keeps the first from happening,
+// and a day before the second the chat gets one message with 🔄 Renew.
+const KEEPALIVE_MS = 6 * 36e5
+const lastAlive = new Map() // chat → last keepalive
+const reminded = new Map() // chat → the signInMaxTime we already warned about
+const walletChats = () => [
+  ...(OWNER && linked(OWNER) ? [Number(OWNER)] : []),
+  ...(existsSync(WALLETS) ? readdirSync(WALLETS).map(Number).filter((c) => c > 0 && linked(c)) : []),
+]
+export async function keepAlive(now = Date.now()) {
+  for (const chat of walletChats()) {
+    if (now - (lastAlive.get(chat) ?? 0) < KEEPALIVE_MS) continue
+    lastAlive.set(chat, now)
+    const s = await wallet.run(walletDir(chat), () => baw('wallet', 'settings')).catch(() => null)
+    const end = Date.parse(s?.data?.signInMaxTime ?? '')
+    if (!s?.success || !(end > now) || end - now > 864e5 || reminded.get(chat) === end) continue
+    reminded.set(chat, end)
+    await say(chat, ui.renewSoon(end), { reply_markup: ui.renewButtons }).catch(() => {})
+  }
+}
+
+/** 🔄 Renew: sign the agent out and straight back in (new 7-day session) with the usual QR flow. */
+async function renewWallet(chat) {
+  await wallet.run(walletDir(chat), () => baw('auth', 'signout')).catch(() => {})
+  return connectWallet(chat)
 }
 
 async function disconnectWallet(chat) {
@@ -592,12 +620,13 @@ async function callback(q, chat) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {})
     return alertAction(chat, action, id, arg)
   }
-  if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'amt'].includes(action)) {
+  if (['home', 'oth', 'stk', 'why', 'pf', 'sl', 'cw', 'dw', 'rw', 'amt'].includes(action)) {
     await tg('answerCallbackQuery', { callback_query_id: q.id }).catch(() => {}) // only stops the button spinner
     if (action === 'home') return showHome(chat, owner)
     if (action === 'cw' && Number(chat) < 0) return say(chat, ui.notice('Connect your wallet in a private chat with me, not in a group.'))
     if (action === 'cw') return owner ? say(chat, ui.notice('Your wallet is already connected.')) : connectWallet(chat, id) // not rate-limited: it usually comes right after viewing a stock; `connecting` stops repeats
     if (action === 'dw') return owner ? disconnectWallet(chat) : say(chat, ui.notice('No wallet connected.'))
+    if (action === 'rw') return owner ? renewWallet(chat) : connectWallet(chat, null)
     if (action === 'oth') return say(chat, ui.askTicker)
     if (action === 'stk') return owner || publicAllowed(chat) ? showStock(chat, id, owner) : say(chat, ui.slowDown())
     if (action === 'why') { // the full provider comparison behind the simple card
@@ -701,6 +730,7 @@ async function main() {
       if (Object.keys(done).length) console.log('runner', JSON.stringify(done))
       await watchOrders()
       await watchAlerts()
+      await keepAlive()
     } catch (e) {
       console.error('runner', e)
     } finally {
